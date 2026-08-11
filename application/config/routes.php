@@ -54,7 +54,7 @@ $route['404_override'] = '';
 $route['translate_uri_dashes'] = FALSE;
 
 // --- Auth ---
-$route['api/auth/login']['post'] = 'api/auth/login';
+$route['api/auth/login'] = 'api/auth/login';
 
 // --- Offices ---
 $route['api/offices']['get'] = 'api/offices/index';
