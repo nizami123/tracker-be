@@ -75,3 +75,12 @@ $route['api/tracking/(:num)']['get']       = 'api/tracking/for_attendance/$1';
 // --- Requests (pengajuan) ---
 $route['api/requests']['post'] = 'api/requests/create';
 $route['api/requests']['get']  = 'api/requests/index';
+
+// --- Deliveries (Pengiriman Kendaraan — role DRIVER) ---
+$route['api/deliveries/start']['post']    = 'api/deliveries/start';
+$route['api/deliveries/complete']['post'] = 'api/deliveries/complete';
+$route['api/deliveries/active']['get']    = 'api/deliveries/active';
+$route['api/deliveries/history']['get']   = 'api/deliveries/history';
+
+$route['api/delivery-tracking/sync']['post']  = 'api/delivery_tracking/sync';
+$route['api/delivery-tracking/(:num)']['get'] = 'api/delivery_tracking/for_delivery/$1';
