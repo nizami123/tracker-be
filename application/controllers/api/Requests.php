@@ -15,6 +15,8 @@ class Requests extends MY_Controller
 
         $type = $body['type'] ?? '';
         $reason = trim($body['reason'] ?? '');
+        $attachmentBase64 = $body['attachment_base64'] ?? null;
+        $attachmentFilename = $body['attachment_filename'] ?? null;
 
         if (!$this->Request_model->isValidType($type)) {
             return $this->json_response(array('success' => false, 'message' => 'Jenis pengajuan tidak valid'), 422);
@@ -22,11 +24,21 @@ class Requests extends MY_Controller
         if (empty($reason)) {
             return $this->json_response(array('success' => false, 'message' => 'Alasan wajib diisi'), 422);
         }
+        // Lampiran WAJIB diisi (via pilih file atau kamera di Android) —
+        // divalidasi ulang di server, tidak cukup hanya di aplikasi.
+        if (empty($attachmentBase64)) {
+            return $this->json_response(array('success' => false, 'message' => 'Lampiran wajib diisi'), 422);
+        }
         if ($type === 'LEAVE' && (empty($body['start_date']) || empty($body['end_date']))) {
             return $this->json_response(array('success' => false, 'message' => 'Tanggal mulai dan selesai wajib diisi'), 422);
         }
         if ($type !== 'LEAVE' && empty($body['date'])) {
             return $this->json_response(array('success' => false, 'message' => 'Tanggal wajib diisi'), 422);
+        }
+
+        $attachmentFile = save_base64_attachment($attachmentBase64, 'request_' . $employee['id'], $attachmentFilename);
+        if ($attachmentFile === null) {
+            return $this->json_response(array('success' => false, 'message' => 'Lampiran gagal diproses, coba lagi'), 422);
         }
 
         // office_id always taken from the employee's own record, never
@@ -40,7 +52,7 @@ class Requests extends MY_Controller
             'end_date'    => $body['end_date'] ?? null,
             'time'        => $body['time'] ?? null,
             'reason'      => $reason,
-            'attachment'  => $body['attachment'] ?? null,
+            'attachment'  => $attachmentFile,
             'status'      => 'PENDING',
             'created_at'  => now_datetime(),
         ));
