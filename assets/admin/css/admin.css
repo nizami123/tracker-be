@@ -1,0 +1,269 @@
+:root {
+    --at-primary: #1E9E5A;
+    --at-primary-dark: #167A46;
+    --at-primary-light: #E7F7EE;
+    --at-white: #FFFFFF;
+    --at-gray: #8A8F98;
+    --at-gray-dark: #4A4F58;
+    --at-light-gray: #F1F3F5;
+    --at-border: #E5E8EB;
+    --at-red: #E53935;
+    --at-red-light: #FDECEA;
+    --at-green: #1E9E5A;
+    --at-green-light: #E7F7EE;
+    --at-orange: #F5A623;
+    --at-orange-light: #FEF3E0;
+    --at-blue: #2E7BE0;
+    --at-blue-light: #E8F0FD;
+    --sidebar-width: 260px;
+}
+
+body {
+    background-color: var(--at-light-gray);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1A1A1A;
+}
+
+/* ---------- Topbar ---------- */
+.at-topbar {
+    height: 64px;
+    background: var(--at-white);
+    border-bottom: 1px solid var(--at-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+}
+
+.at-topbar .brand {
+    font-weight: 700;
+    color: var(--at-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.at-topbar .brand .brand-icon {
+    width: 34px;
+    height: 34px;
+    background: var(--at-primary);
+    color: #fff;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ---------- Sidebar ---------- */
+.at-sidebar {
+    width: var(--sidebar-width);
+    background: var(--at-white);
+    border-right: 1px solid var(--at-border);
+}
+
+.at-sidebar .nav-section-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    color: var(--at-gray);
+    padding: 18px 18px 6px;
+    text-transform: uppercase;
+}
+
+.at-sidebar .nav-link {
+    color: var(--at-gray-dark);
+    padding: 10px 18px;
+    border-radius: 10px;
+    margin: 2px 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+}
+
+.at-sidebar .nav-link i {
+    font-size: 18px;
+    width: 20px;
+    text-align: center;
+}
+
+.at-sidebar .nav-link:hover {
+    background: var(--at-green-light);
+    color: var(--at-primary);
+}
+
+.at-sidebar .nav-link.active {
+    background: var(--at-primary);
+    color: #fff;
+}
+
+/* ---------- Layout wrapper ---------- */
+.at-layout {
+    display: flex;
+    min-height: 100vh;
+}
+
+.at-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.at-content {
+    padding: 24px;
+}
+
+@media (max-width: 991.98px) {
+    .at-content { padding: 16px; }
+}
+
+/* ---------- Cards ---------- */
+.at-card {
+    background: var(--at-white);
+    border: 1px solid var(--at-border);
+    border-radius: 14px;
+    padding: 18px;
+}
+
+.at-stat-card {
+    background: var(--at-white);
+    border: 1px solid var(--at-border);
+    border-radius: 14px;
+    padding: 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.at-stat-card .icon-box {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.at-stat-card .stat-value {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.at-stat-card .stat-label {
+    font-size: 12.5px;
+    color: var(--at-gray);
+}
+
+.bg-icon-green { background: var(--at-green-light); color: var(--at-primary); }
+.bg-icon-orange { background: var(--at-orange-light); color: var(--at-orange); }
+.bg-icon-blue { background: var(--at-blue-light); color: var(--at-blue); }
+.bg-icon-red { background: var(--at-red-light); color: var(--at-red); }
+
+/* ---------- Badges ---------- */
+.badge-at {
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 20px;
+}
+.badge-at-green { background: var(--at-green-light); color: var(--at-green); }
+.badge-at-orange { background: var(--at-orange-light); color: var(--at-orange); }
+.badge-at-red { background: var(--at-red-light); color: var(--at-red); }
+.badge-at-gray { background: var(--at-light-gray); color: var(--at-gray-dark); }
+.badge-at-blue { background: var(--at-blue-light); color: var(--at-blue); }
+
+/* ---------- Buttons ---------- */
+.btn-at-primary {
+    background: var(--at-primary);
+    border-color: var(--at-primary);
+    color: #fff;
+}
+.btn-at-primary:hover {
+    background: var(--at-primary-dark);
+    border-color: var(--at-primary-dark);
+    color: #fff;
+}
+.btn-outline-at-primary {
+    border-color: var(--at-primary);
+    color: var(--at-primary);
+}
+.btn-outline-at-primary:hover {
+    background: var(--at-primary);
+    color: #fff;
+}
+
+/* ---------- Tables ---------- */
+.table-at thead th {
+    background: var(--at-light-gray);
+    color: var(--at-gray-dark);
+    font-size: 12.5px;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    border-bottom: none;
+    white-space: nowrap;
+}
+.table-at td { vertical-align: middle; font-size: 13.5px; }
+
+/* ---------- Login page ---------- */
+.at-login-wrap {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(180deg, var(--at-primary) 0%, var(--at-primary) 220px, var(--at-light-gray) 220px);
+    padding: 20px;
+}
+.at-login-card {
+    width: 100%;
+    max-width: 400px;
+    background: #fff;
+    border-radius: 18px;
+    padding: 32px 28px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.12);
+}
+.at-login-logo {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    background: var(--at-primary-light);
+    color: var(--at-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    margin: 0 auto 14px;
+}
+
+/* ---------- Map ---------- */
+.at-map {
+    width: 100%;
+    height: 480px;
+    border-radius: 14px;
+    border: 1px solid var(--at-border);
+}
+.at-map-sm {
+    width: 100%;
+    height: 320px;
+    border-radius: 14px;
+    border: 1px solid var(--at-border);
+}
+
+/* ---------- Misc ---------- */
+.text-gray { color: var(--at-gray) !important; }
+.avatar-circle {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--at-light-gray);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: var(--at-gray-dark);
+    flex-shrink: 0;
+}
