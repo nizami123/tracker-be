@@ -117,7 +117,7 @@ class Reports extends MY_Admin_Controller
         $officeId = $f['office_id'] ?: $this->officeScope();
         $rows = $this->Admin_report_model->requestRows($f, $officeId);
 
-        $typeLabels = array('LATE' => 'Terlambat', 'CHECK_IN' => 'Masuk', 'CHECK_OUT' => 'Pulang', 'LEAVE' => 'Cuti/Izin');
+        $typeLabels = array('LATE' => 'Terlambat', 'CHECK_IN' => 'Masuk', 'CHECK_OUT' => 'Pulang', 'LEAVE' => 'Cuti/Izin', 'OUTSIDE_OFFICE' => 'Absen Luar Kantor');
 
         export_excel(
             'laporan_pengajuan_' . $f['date_from'] . '_' . $f['date_to'],

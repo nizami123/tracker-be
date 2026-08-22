@@ -34,7 +34,7 @@
         <thead><tr><th>Diajukan</th><th>Karyawan</th><th>Kantor</th><th>Jenis</th><th>Tanggal</th><th>Status</th></tr></thead>
         <tbody>
             <?php
-            $typeLabels = array('LATE' => 'Terlambat', 'CHECK_IN' => 'Masuk', 'CHECK_OUT' => 'Pulang', 'LEAVE' => 'Cuti/Izin');
+            $typeLabels = array('LATE' => 'Terlambat', 'CHECK_IN' => 'Masuk', 'CHECK_OUT' => 'Pulang', 'LEAVE' => 'Cuti/Izin', 'OUTSIDE_OFFICE' => 'Absen Luar Kantor');
             ?>
             <?php foreach ($rows as $r): ?>
                 <tr>

@@ -35,6 +35,7 @@
                 <option value="">Semua</option>
                 <option value="LATE">Terlambat</option>
                 <option value="CHECK_IN">Masuk</option>
+                <option value="OUTSIDE_OFFICE">Absen Luar Kantor</option>
                 <option value="CHECK_OUT">Pulang</option>
                 <option value="LEAVE">Cuti/Izin</option>
             </select>
@@ -119,7 +120,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
     const rejectModal = new bootstrap.Modal(document.getElementById('rejectModal'));
 
-    const typeLabels = { LATE: 'Terlambat', CHECK_IN: 'Pengajuan Masuk', CHECK_OUT: 'Pengajuan Pulang', LEAVE: 'Cuti/Izin' };
+    const typeLabels = { LATE: 'Terlambat', CHECK_IN: 'Pengajuan Masuk', CHECK_OUT: 'Pengajuan Pulang', LEAVE: 'Cuti/Izin', OUTSIDE_OFFICE: 'Absen Luar Kantor' };
     function statusBadge(s) {
         const map = { PENDING: ['Menunggu', 'badge-at-orange'], APPROVED: ['Disetujui', 'badge-at-green'], REJECTED: ['Ditolak', 'badge-at-red'] };
         const m = map[s] || [s, 'badge-at-gray'];

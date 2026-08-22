@@ -35,6 +35,7 @@
                 <option value="">Semua</option>
                 <option value="LATE" <?= $filters['type'] == 'LATE' ? 'selected' : '' ?>>Terlambat</option>
                 <option value="CHECK_IN" <?= $filters['type'] == 'CHECK_IN' ? 'selected' : '' ?>>Masuk</option>
+                <option value="OUTSIDE_OFFICE" <?= $filters['type'] == 'OUTSIDE_OFFICE' ? 'selected' : '' ?>>Absen Luar Kantor</option>
                 <option value="CHECK_OUT" <?= $filters['type'] == 'CHECK_OUT' ? 'selected' : '' ?>>Pulang</option>
                 <option value="LEAVE" <?= $filters['type'] == 'LEAVE' ? 'selected' : '' ?>>Cuti/Izin</option>
             </select>
@@ -70,7 +71,7 @@
             <thead><tr><th>Diajukan</th><th>Karyawan</th><th>Kantor</th><th>Jenis</th><th>Tanggal</th><th>Status</th></tr></thead>
             <tbody>
                 <?php
-                $typeLabels = array('LATE' => 'Terlambat', 'CHECK_IN' => 'Masuk', 'CHECK_OUT' => 'Pulang', 'LEAVE' => 'Cuti/Izin');
+                $typeLabels = array('LATE' => 'Terlambat', 'CHECK_IN' => 'Masuk', 'CHECK_OUT' => 'Pulang', 'LEAVE' => 'Cuti/Izin', 'OUTSIDE_OFFICE' => 'Absen Luar Kantor');
                 $statusMap = array('PENDING' => ['Menunggu', 'badge-at-orange'], 'APPROVED' => ['Disetujui', 'badge-at-green'], 'REJECTED' => ['Ditolak', 'badge-at-red']);
                 ?>
                 <?php if (empty($rows)): ?>

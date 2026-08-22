@@ -25,6 +25,14 @@ class Attendance_model extends CI_Model
         return $this->db->where('id', $id)->get('attendances')->row_array();
     }
 
+    /**
+     * Deliberately scoped to TODAY's date only, not "any still-open
+     * session" — a forgotten check-out from a previous day must NOT
+     * block a fresh check-in today. Tracking for a forgotten day is
+     * expected to have already stopped on its own at midnight
+     * (client-side, see TrackingForegroundService), and that
+     * attendance row's check_out_time is simply left empty forever.
+     */
     public function alreadyCheckedInToday(int $employeeId): bool
     {
         return (bool) $this->getToday($employeeId);
