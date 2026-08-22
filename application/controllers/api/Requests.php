@@ -68,33 +68,50 @@ class Requests extends MY_Controller
         ));
 
         if ($isOutsideOffice) {
-            $this->applyOutsideOfficeCheckIn($employee, $latitude, $longitude, $attachmentBase64);
+            $this->applyOutsideOfficeAttendance($employee, $latitude, $longitude, $attachmentBase64);
         }
 
         $this->json_response($this->Request_model->getById($id), 201);
     }
 
     /**
-     * Absen Luar Kantor already counts as that day's check-in: an employee
-     * who submits this in the morning is treated as already checked in, so
-     * their next tap on "Absen" in the app goes straight to "Absen Pulang"
-     * (the Android Home screen decides that purely from whether today's
-     * attendance row already has a check_in_time — see
-     * Attendance_model->alreadyCheckedInToday()).
-     *
-     * Never overwrites an existing check-in for today — an employee may
-     * already have checked in normally at the office before submitting
-     * this (e.g. checked in, then got sent out on a task later).
+     * Absen Luar Kantor doubles as whichever half of today's attendance
+     * is still missing:
+     *   - No attendance row yet today -> counts as that day's check-in.
+     *     The Android Home screen then shows "Absen Pulang" next, exactly
+     *     like a normal check-in (see Attendance_model->alreadyCheckedInToday()).
+     *   - Already checked in today (normal check-in OR an earlier Absen
+     *     Luar Kantor) but not checked out yet -> counts as that day's
+     *     check-out. The client is expected to stop tracking locally
+     *     once it picks up the updated attendance row (see
+     *     EmployeeTrackingCoordinator.adoptServerAttendance on Android).
+     *   - Already checked in AND out today -> nothing left to touch;
+     *     the request itself is still recorded/approved on its own.
      */
-    private function applyOutsideOfficeCheckIn(array $employee, ?float $latitude, ?float $longitude, string $attachmentBase64): void
+    private function applyOutsideOfficeAttendance(array $employee, ?float $latitude, ?float $longitude, string $attachmentBase64): void
     {
         $this->load->model('Attendance_model');
 
-        if ($this->Attendance_model->alreadyCheckedInToday((int) $employee['id'])) {
+        $today = $this->Attendance_model->getToday((int) $employee['id']);
+
+        if ($today && !empty($today['check_out_time'])) {
             return;
         }
 
         $photoFilename = save_base64_photo($attachmentBase64, 'outside_office_' . $employee['id']);
+
+        if ($today && !empty($today['check_in_time'])) {
+            $this->Attendance_model->updateCheckOut((int) $today['id'], array(
+                'check_out_time'      => now_datetime(),
+                'check_out_photo'     => $photoFilename,
+                'check_out_latitude'  => $latitude,
+                'check_out_longitude' => $longitude,
+                'check_out_accuracy'  => null,
+                'check_out_distance'  => null, // luar kantor — jarak dari kantor tidak relevan
+                'updated_at'          => now_datetime(),
+            ));
+            return;
+        }
 
         $this->Attendance_model->insertCheckIn(array(
             'employee_id'        => $employee['id'],
