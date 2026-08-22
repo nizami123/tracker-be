@@ -1,25 +1,6 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-/**
- * Base controller for every application/controllers/admin/*.php file.
- *
- * Completely separate from MY_Controller (the JSON API base for the
- * Android app) — this one renders HTML views and authenticates via
- * CodeIgniter's PHP session, not a bearer token. Both read from the
- * same `employees` table though.
- *
- * Authorization is enforced HERE, in the controller layer, not just by
- * hiding sidebar menu items:
- *  - requireLogin() runs on every single admin page load.
- *  - officeScope() returns null (no filter -> sees everything) for
- *    SUPER_ADMIN, or the admin's own office_id for ADMIN_KANTOR. Every
- *    admin model method that lists/filters data takes this value and
- *    applies it as a WHERE clause — so an ADMIN_KANTOR can never see
- *    another office's data no matter what query string / form field
- *    they send (ids from the URL/POST are never trusted directly,
- *    per the project's existing security convention).
- */
 class MY_Admin_Controller extends CI_Controller
 {
     /** @var array Currently logged-in admin's employees row (SUPER_ADMIN or ADMIN_KANTOR). */

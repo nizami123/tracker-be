@@ -1,21 +1,6 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-/**
- * Base controller for every API endpoint.
- *
- * Provides:
- *  - json_input(): parsed JSON request body (Android sends JSON, not form fields)
- *  - json_response(): consistent JSON output + HTTP status
- *  - require_auth(): validates the Authorization: Bearer <token> header
- *    against auth_tokens, and returns the authenticated employee row.
- *
- * IMPORTANT (spec section 25): every controller that touches
- * employee-specific or office-specific data MUST call require_auth()
- * and then filter queries by the employee's own id / office_id — never
- * trust an employee_id or office_id sent from the client body/query
- * without cross-checking it against the authenticated employee.
- */
 class MY_Controller extends CI_Controller
 {
     protected $authEmployee = null;
