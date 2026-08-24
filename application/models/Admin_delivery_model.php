@@ -68,16 +68,21 @@ class Admin_delivery_model extends CI_Model
 
     public function getById(int $id, ?int $officeId)
     {
+        // NOTE: destination_latitude/longitude/radius are NOT re-aliased
+        // from the joined office here — vehicle_deliveries.* already
+        // carries the authoritative values (denormalized at "Mulai
+        // Pengiriman" time, whether the destination was a registered
+        // office or a custom one), and aliasing dest.* over the top
+        // would silently overwrite/null them out for custom destinations.
+        // dest.name/address are only for admin display of which
+        // registered office was linked, when applicable.
         $this->db->select("
                 vehicle_deliveries.*,
                 employees.name as driver_name,
                 employees.employee_code as driver_code,
                 employees.phone as driver_phone,
                 dest.name as destination_office_name,
-                dest.address as destination_office_address,
-                dest.latitude as destination_latitude,
-                dest.longitude as destination_longitude,
-                dest.check_in_radius as destination_radius
+                dest.address as destination_office_address
             ")
             ->from('vehicle_deliveries')
             ->join('employees', 'employees.id = vehicle_deliveries.driver_id')

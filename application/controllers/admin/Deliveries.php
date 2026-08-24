@@ -118,7 +118,7 @@ class Deliveries extends MY_Admin_Controller
         }
 
         if (!empty($delivery['arrival_time'])) {
-            $steps[] = array('time' => $delivery['arrival_time'], 'label' => 'Masuk radius kantor tujuan', 'icon' => 'bi-pin-map-fill');
+            $steps[] = array('time' => $delivery['arrival_time'], 'label' => 'Masuk radius lokasi tujuan', 'icon' => 'bi-pin-map-fill');
             $steps[] = array('time' => $delivery['arrival_time'], 'label' => 'Foto kendaraan saat tiba', 'icon' => 'bi-camera-fill');
         }
 

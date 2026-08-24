@@ -16,7 +16,8 @@
     <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">No. Mesin</div><div class="fw-bold"><?= html_escape($delivery['engine_number']) ?></div></div></div>
     <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">No. Rangka</div><div class="fw-bold"><?= html_escape($delivery['chassis_number']) ?></div></div></div>
     <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Warna</div><div class="fw-bold"><?= html_escape($delivery['color']) ?></div></div></div>
-    <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Tujuan</div><div class="fw-bold"><?= html_escape($delivery['destination_office_name'] ?: '-') ?></div></div></div>
+    <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Tujuan</div><div class="fw-bold"><?= html_escape($delivery['destination_office_name'] ?: $delivery['destination_name'] ?: '-') ?></div></div></div>
+    <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Alamat Tujuan</div><div class="fw-bold"><?= html_escape($delivery['destination_office_address'] ?: $delivery['destination_address'] ?: '-') ?></div></div></div>
     <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Waktu Mulai</div><div class="fw-bold"><?= $delivery['pickup_time'] ? substr($delivery['pickup_time'], 0, 16) : '-' ?></div></div></div>
     <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Waktu Selesai</div><div class="fw-bold"><?= $delivery['arrival_time'] ? substr($delivery['arrival_time'], 0, 16) : '-' ?></div></div></div>
     <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Jarak Saat Tiba</div><div class="fw-bold"><?= $delivery['arrival_distance'] !== null ? round($delivery['arrival_distance']) . ' m' : '-' ?></div></div></div>

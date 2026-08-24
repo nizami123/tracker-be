@@ -72,7 +72,7 @@
                         <td><?= html_escape(substr($r['created_at'], 0, 10)) ?></td>
                         <td><?= html_escape($r['driver_name']) ?></td>
                         <td><?= html_escape($r['brand'] . ' ' . $r['vehicle_type']) ?></td>
-                        <td><?= html_escape($r['destination_office_name'] ?: '-') ?></td>
+                        <td><?= html_escape($r['destination_office_name'] ?: $r['destination_name'] ?: '-') ?></td>
                         <td><?= $r['pickup_time'] ? html_escape(substr($r['pickup_time'], 11, 8)) : '-' ?></td>
                         <td><?= $r['arrival_time'] ? html_escape(substr($r['arrival_time'], 11, 8)) : '-' ?></td>
                         <td><span class="badge-at <?= $cls ?>"><?= $label ?></span></td>

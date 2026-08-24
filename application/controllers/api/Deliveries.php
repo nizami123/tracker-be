@@ -55,7 +55,6 @@ class Deliveries extends MY_Controller
         $brand = trim($body['brand'] ?? '');
         $vehicleType = trim($body['vehicle_type'] ?? '');
         $color = trim($body['color'] ?? '');
-        $destinationOfficeId = isset($body['destination_office_id']) ? (int) $body['destination_office_id'] : null;
 
         if (empty($engineNumber) || empty($chassisNumber) || empty($brand) || empty($vehicleType) || empty($color)) {
             return $this->json_response(array(
@@ -64,9 +63,32 @@ class Deliveries extends MY_Controller
             ), 422);
         }
 
-        $office = $destinationOfficeId ? $this->Office_model->getById($destinationOfficeId) : null;
-        if (!$office) {
-            return $this->json_response(array('success' => false, 'message' => 'Tujuan pengiriman tidak valid'), 422);
+        // Tujuan pengiriman: pilih salah satu kantor terdaftar
+        // (destination_office_id), ATAU tentukan tujuan bebas (nama +
+        // lokasi GPS) sebagai pemberhentian terakhir — dua-duanya
+        // disimpan ke kolom destination_* yang sama (disalin dari data
+        // kantor kalau dari daftar), supaya validasi kedatangan & respons
+        // API tidak perlu tahu bedanya lagi setelah ini.
+        $destinationOfficeId = !empty($body['destination_office_id']) ? (int) $body['destination_office_id'] : null;
+        $destinationName = trim($body['destination_name'] ?? '');
+        $destinationAddress = trim($body['destination_address'] ?? '');
+        $destinationLat = isset($body['destination_latitude']) && $body['destination_latitude'] !== ''
+            ? (float) $body['destination_latitude'] : null;
+        $destinationLng = isset($body['destination_longitude']) && $body['destination_longitude'] !== ''
+            ? (float) $body['destination_longitude'] : null;
+        $destinationRadius = isset($body['destination_radius']) ? (int) $body['destination_radius'] : null;
+
+        $office = null;
+        if ($destinationOfficeId) {
+            $office = $this->Office_model->getById($destinationOfficeId);
+            if (!$office) {
+                return $this->json_response(array('success' => false, 'message' => 'Kantor tujuan tidak valid'), 422);
+            }
+        } elseif ($destinationLat === null || $destinationLng === null || $destinationName === '') {
+            return $this->json_response(array(
+                'success' => false,
+                'message' => 'Tujuan pengiriman wajib diisi: pilih kantor atau tentukan nama & lokasi tujuan',
+            ), 422);
         }
 
         $photoFilename = !empty($body['pickup_photo_base64'])
@@ -74,20 +96,25 @@ class Deliveries extends MY_Controller
             : null;
 
         $id = $this->Delivery_model->insertStart(array(
-            'driver_id'              => $driver['id'],
-            'engine_number'          => $engineNumber,
-            'chassis_number'         => $chassisNumber,
-            'brand'                  => $brand,
-            'vehicle_type'           => $vehicleType,
-            'color'                  => $color,
-            'destination_office_id'  => $office['id'],
-            'notes'                  => $body['notes'] ?? null,
-            'pickup_photo'           => $photoFilename,
-            'pickup_time'            => $body['timestamp'] ?? now_datetime(),
-            'pickup_latitude'        => $body['pickup_latitude'] ?? null,
-            'pickup_longitude'       => $body['pickup_longitude'] ?? null,
-            'status'                 => 'IN_PROGRESS',
-            'created_at'             => now_datetime(),
+            'driver_id'               => $driver['id'],
+            'engine_number'           => $engineNumber,
+            'chassis_number'          => $chassisNumber,
+            'brand'                   => $brand,
+            'vehicle_type'            => $vehicleType,
+            'color'                   => $color,
+            'destination_office_id'   => $office['id'] ?? null,
+            'destination_name'        => $office['name'] ?? $destinationName,
+            'destination_address'     => $office['address'] ?? ($destinationAddress ?: null),
+            'destination_latitude'    => $office ? $office['latitude'] : $destinationLat,
+            'destination_longitude'   => $office ? $office['longitude'] : $destinationLng,
+            'destination_radius'      => $office ? (int) $office['check_in_radius'] : ($destinationRadius ?: 100),
+            'notes'                   => $body['notes'] ?? null,
+            'pickup_photo'            => $photoFilename,
+            'pickup_time'             => $body['timestamp'] ?? now_datetime(),
+            'pickup_latitude'         => $body['pickup_latitude'] ?? null,
+            'pickup_longitude'        => $body['pickup_longitude'] ?? null,
+            'status'                  => 'IN_PROGRESS',
+            'created_at'              => now_datetime(),
         ));
 
         $this->json_response(array(
@@ -123,7 +150,6 @@ class Deliveries extends MY_Controller
         }
 
         $this->load->model('Delivery_model');
-        $this->load->model('Office_model');
 
         $delivery = $this->Delivery_model->getById($deliveryId);
         if (!$delivery || (int) $delivery['driver_id'] !== (int) $driver['id']) {
@@ -136,13 +162,17 @@ class Deliveries extends MY_Controller
             return $this->json_response(array('success' => false, 'message' => 'Foto kendaraan saat tiba wajib diambil'), 422);
         }
 
-        $office = $this->Office_model->getById((int) $delivery['destination_office_id']);
-        // Reuses the office's own check-in radius as the "arrival"
-        // threshold — no separate delivery-specific radius needed.
-        $radius = $office ? (int) $office['check_in_radius'] : 100;
-        $distance = $office ? distance_meters($lat, $lng, (float) $office['latitude'], (float) $office['longitude']) : null;
+        // Jarak & radius kedatangan divalidasi terhadap destination_latitude/
+        // longitude/radius yang tersimpan sejak "Mulai Pengiriman" — berlaku
+        // sama persis baik tujuannya kantor terdaftar maupun tujuan bebas
+        // yang driver tentukan sendiri, tidak perlu tahu bedanya lagi di sini.
+        $radius = (int) ($delivery['destination_radius'] ?: 100);
+        $distance = (isset($delivery['destination_latitude']) && isset($delivery['destination_longitude'])
+            && $delivery['destination_latitude'] !== null && $delivery['destination_longitude'] !== null)
+            ? distance_meters($lat, $lng, (float) $delivery['destination_latitude'], (float) $delivery['destination_longitude'])
+            : null;
 
-        if ($office && $distance > $radius) {
+        if ($distance !== null && $distance > $radius) {
             return $this->json_response(array(
                 'success'  => false,
                 'message'  => 'Anda belum berada di area tujuan',

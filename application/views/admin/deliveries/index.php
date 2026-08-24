@@ -98,7 +98,7 @@ document.addEventListener('DOMContentLoaded', function () {
             { data: 'engine_number' },
             { data: 'chassis_number' },
             { data: 'color' },
-            { data: 'destination_office_name', render: d => d || '-' },
+            { data: 'destination_office_name', render: (d, type, row) => d || row.destination_name || '-' },
             { data: 'pickup_time', render: d => d ? d.substring(11, 19) : '-' },
             { data: 'arrival_time', render: d => d ? d.substring(11, 19) : '-' },
             { data: 'status', render: statusBadge },
