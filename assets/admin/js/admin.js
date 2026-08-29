@@ -1,4 +1,4 @@
-// Employee Tracker Admin — shared JS helpers.
+// Samsu Tracker Admin — shared JS helpers.
 // Page-specific logic (DataTables init, Leaflet maps, polling) lives
 // inline in each page's view for now, wrapped in DOMContentLoaded, and
 // can call the small helpers below.

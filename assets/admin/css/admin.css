@@ -1,7 +1,8 @@
 :root {
-    --at-primary: #1E9E5A;
-    --at-primary-dark: #167A46;
-    --at-primary-light: #E7F7EE;
+    /* Primary brand blue — matches the company logo */
+    --at-primary: #2F6FED;
+    --at-primary-dark: #1D4FC0;
+    --at-primary-light: #E8EFFE;
     --at-white: #FFFFFF;
     --at-gray: #8A8F98;
     --at-gray-dark: #4A4F58;
@@ -9,6 +10,9 @@
     --at-border: #E5E8EB;
     --at-red: #E53935;
     --at-red-light: #FDECEA;
+    /* Semantic success color (approved/present badges) — kept green on
+       purpose, independent of the brand primary color above, since
+       green-for-success is a separate UI convention. */
     --at-green: #1E9E5A;
     --at-green-light: #E7F7EE;
     --at-orange: #F5A623;
@@ -49,7 +53,8 @@ body {
 .at-topbar .brand .brand-icon {
     width: 34px;
     height: 34px;
-    background: var(--at-primary);
+    background: #fff;
+    border: 1px solid var(--at-border);
     color: #fff;
     border-radius: 10px;
     display: flex;
