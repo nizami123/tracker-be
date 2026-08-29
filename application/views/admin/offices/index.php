@@ -18,6 +18,7 @@
                     <th>Alamat</th>
                     <th>Radius Masuk</th>
                     <th>Radius Pulang</th>
+                    <th>Interval GPS</th>
                     <th>Status</th>
                     <th class="text-end">Aksi</th>
                 </tr>
@@ -60,6 +61,11 @@
                         <div class="col-md-6">
                             <label class="form-label small fw-bold">Radius Absen Pulang (meter) *</label>
                             <input type="number" class="form-control" name="check_out_radius" id="officeCheckOutRadius" value="50" min="1" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Interval Tracking GPS (menit) *</label>
+                            <input type="number" class="form-control" name="tracking_interval_minutes" id="officeTrackingInterval" value="10" min="1" required>
+                            <p class="text-gray small mb-0 mt-1">Seberapa sering lokasi karyawan di kantor ini dicatat. Tiap kantor bisa beda-beda.</p>
                         </div>
                         <div class="col-12">
                             <label class="form-label small fw-bold">Pilih Lokasi di Peta *</label>
@@ -126,6 +132,7 @@ document.addEventListener('DOMContentLoaded', function () {
             { data: 'address', render: d => d || '-' },
             { data: 'check_in_radius', render: d => d + ' m' },
             { data: 'check_out_radius', render: d => d + ' m' },
+            { data: 'tracking_interval_seconds', render: d => Math.round((d || 600) / 60) + ' menit' },
             { data: 'status', render: s => `<span class="badge-at ${s === 'ACTIVE' ? 'badge-at-green' : 'badge-at-gray'}">${s === 'ACTIVE' ? 'Aktif' : 'Nonaktif'}</span>` },
             {
                 data: null, orderable: false, className: 'text-end',
@@ -163,6 +170,7 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('officeAddress').value = o.address || '';
             document.getElementById('officeCheckInRadius').value = o.check_in_radius;
             document.getElementById('officeCheckOutRadius').value = o.check_out_radius;
+            document.getElementById('officeTrackingInterval').value = Math.round((o.tracking_interval_seconds || 600) / 60);
             document.getElementById('officeStatus').value = o.status;
             document.getElementById('officeLat').value = o.latitude;
             document.getElementById('officeLng').value = o.longitude;

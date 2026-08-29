@@ -53,6 +53,10 @@ class Offices extends MY_Admin_Controller
         $longitude = $this->input->post('longitude');
         $checkInRadius = (int) $this->input->post('check_in_radius');
         $checkOutRadius = (int) $this->input->post('check_out_radius');
+        // Interval tracking GPS khusus kantor ini. Form mengirim dalam
+        // MENIT (lebih mudah diisi admin); disimpan ke DB dalam DETIK
+        // karena itu yang langsung dipakai Android tanpa konversi lagi.
+        $trackingIntervalMinutes = $this->input->post('tracking_interval_minutes');
         $status = $this->input->post('status') === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE';
 
         if ($code === '' || $name === '' || $latitude === '' || $longitude === '') {
@@ -63,6 +67,12 @@ class Offices extends MY_Admin_Controller
         }
         if ($checkInRadius <= 0) $checkInRadius = 50;
         if ($checkOutRadius <= 0) $checkOutRadius = 50;
+
+        if ($trackingIntervalMinutes === '' || $trackingIntervalMinutes === null || !is_numeric($trackingIntervalMinutes) || (int) $trackingIntervalMinutes <= 0) {
+            $trackingIntervalSeconds = 600; // default 10 menit, sama seperti perilaku lama
+        } else {
+            $trackingIntervalSeconds = (int) $trackingIntervalMinutes * 60;
+        }
 
         if ($this->Admin_office_model->codeExists($code, $id ?: null)) {
             return $this->json(array('success' => false, 'message' => 'Kode kantor sudah dipakai'), 422);
@@ -76,6 +86,7 @@ class Offices extends MY_Admin_Controller
             'longitude' => (float) $longitude,
             'check_in_radius' => $checkInRadius,
             'check_out_radius' => $checkOutRadius,
+            'tracking_interval_seconds' => $trackingIntervalSeconds,
             'status' => $status,
         );
 
