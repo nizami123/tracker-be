@@ -14,4 +14,13 @@ class Employee_model extends CI_Model
         unset($employee['password']);
         return $employee;
     }
+
+    /** Used by Auth::change_password() after the current password has been verified. */
+    public function updatePassword(int $employeeId, string $bcryptHash): void
+    {
+        $this->db->where('id', $employeeId)->update('employees', array(
+            'password'   => $bcryptHash,
+            'updated_at' => now_datetime(),
+        ));
+    }
 }

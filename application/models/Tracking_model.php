@@ -7,10 +7,13 @@ class Tracking_model extends CI_Model
     {
         if (empty($rows)) return;
         // insert_batch skips rows that violate the unique(attendance_id,
-        // recorded_at) constraint only if we catch duplicate errors per
-        // row; CI3's insert_batch does one multi-row INSERT, so instead
-        // we insert one by one with INSERT IGNORE semantics to tolerate
-        // a point being re-sent after a flaky network ack.
+        // employee_id, recorded_at) constraint only if we catch duplicate
+        // errors per row; CI3's insert_batch does one multi-row INSERT, so
+        // instead we insert one by one with INSERT IGNORE semantics to
+        // tolerate a point being re-sent after a flaky network ack.
+        // attendance_id is NULL for points recorded before check-in
+        // exists yet (see Tracking::sync()) — still inserted so the
+        // employee's location is never silently dropped.
         foreach ($rows as $row) {
             $this->db->query(
                 "INSERT IGNORE INTO attendance_tracking
@@ -25,6 +28,26 @@ class Tracking_model extends CI_Model
                 )
             );
         }
+    }
+
+    /**
+     * Called right after a successful check-in (spec parity with the
+     * Android app's TrackingRepository.reassignPendingPoints): claims
+     * every pending point (attendance_id IS NULL) recorded TODAY for
+     * this employee and attaches it to the attendance record that was
+     * just created, so this morning's pre-check-in location history
+     * shows up under the employee's attendance as expected.
+     */
+    public function reassignPendingPoints(int $employeeId, int $attendanceId): void
+    {
+        $this->db->query(
+            "UPDATE attendance_tracking
+                SET attendance_id = ?
+              WHERE employee_id = ?
+                AND attendance_id IS NULL
+                AND DATE(recorded_at) = CURDATE()",
+            array($attendanceId, $employeeId)
+        );
     }
 
     public function getForAttendance(int $attendanceId): array

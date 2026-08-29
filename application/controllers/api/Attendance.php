@@ -77,6 +77,13 @@ class Attendance extends MY_Controller
             'created_at'          => now_datetime(),
         ));
 
+        // Claim this morning's pre-check-in location points (recorded
+        // with attendance_id NULL — see api/Tracking::sync()) now that a
+        // real attendance record exists, so they show up in the
+        // tracking history for this attendance instead of being orphaned.
+        $this->load->model('Tracking_model');
+        $this->Tracking_model->reassignPendingPoints((int) $employee['id'], (int) $attendanceId);
+
         $attendance = $this->Attendance_model->getById($attendanceId);
 
         $this->json_response(array(

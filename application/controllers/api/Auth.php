@@ -33,4 +33,43 @@ class Auth extends MY_Controller
             'employee' => $this->Employee_model->toPublic($employee),
         ), 200);
     }
+
+    /**
+     * POST /api/auth/change-password
+     * Employee-initiated password change (settings screen). Requires
+     * the current password to be re-entered (never trust that a valid
+     * bearer token alone is enough to change credentials — a device
+     * left logged in shouldn't let anyone at it silently lock the real
+     * owner out), and re-hashes the new one with the same bcrypt scheme
+     * used at login (password_verify/password_hash are a matched pair).
+     */
+    public function change_password()
+    {
+        $employee = $this->require_auth();
+        $body = $this->json_input();
+
+        $currentPassword = (string) ($body['current_password'] ?? '');
+        $newPassword = (string) ($body['new_password'] ?? '');
+
+        if (empty($currentPassword) || empty($newPassword)) {
+            return $this->json_response(array('success' => false, 'message' => 'Password lama dan password baru wajib diisi'), 422);
+        }
+
+        if (strlen($newPassword) < 6) {
+            return $this->json_response(array('success' => false, 'message' => 'Password baru minimal 6 karakter'), 422);
+        }
+
+        if (!password_verify($currentPassword, $employee['password'])) {
+            return $this->json_response(array('success' => false, 'message' => 'Password lama salah'), 401);
+        }
+
+        if (password_verify($newPassword, $employee['password'])) {
+            return $this->json_response(array('success' => false, 'message' => 'Password baru tidak boleh sama dengan password lama'), 422);
+        }
+
+        $this->load->model('Employee_model');
+        $this->Employee_model->updatePassword((int) $employee['id'], password_hash($newPassword, PASSWORD_DEFAULT));
+
+        $this->json_response(array('success' => true, 'message' => 'Password berhasil diubah'), 200);
+    }
 }

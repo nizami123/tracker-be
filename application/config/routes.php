@@ -55,6 +55,7 @@ $route['translate_uri_dashes'] = FALSE;
 
 // --- Auth ---
 $route['api/auth/login']['post'] = 'api/auth/login';
+$route['api/auth/change-password']['post'] = 'api/auth/change_password';
 
 // --- Offices ---
 $route['api/offices']['get'] = 'api/offices/index';
@@ -84,3 +85,4 @@ $route['api/deliveries/history']['get']   = 'api/deliveries/history';
 
 $route['api/delivery-tracking/sync']['post']  = 'api/delivery_tracking/sync';
 $route['api/delivery-tracking/(:num)']['get'] = 'api/delivery_tracking/for_delivery/$1';
+

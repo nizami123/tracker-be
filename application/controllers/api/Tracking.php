@@ -13,6 +13,14 @@ class Tracking extends MY_Controller
      * cross-checked against the authenticated employee before insert,
      * so one employee can never write tracking data into another
      * employee's attendance record.
+     *
+     * The Android app uses attendance_id = 0 as a sentinel for points
+     * recorded BEFORE check-in (no attendance record exists yet). Those
+     * points are still inserted — with attendance_id stored as NULL —
+     * instead of being dropped, so the employee's location is never
+     * lost just because they haven't absen masuk yet. They get claimed
+     * by the real attendance record once check-in happens (see
+     * Attendance::check_in() -> Tracking_model::reassignPendingPoints()).
      */
     public function sync()
     {
@@ -31,20 +39,26 @@ class Tracking extends MY_Controller
         $checkedAttendance = array(); // cache ownership checks per attendance_id
 
         foreach ($points as $point) {
-            $attendanceId = (int) ($point['attendance_id'] ?? 0);
+            $rawAttendanceId = (int) ($point['attendance_id'] ?? 0);
+            $isPending = $rawAttendanceId <= 0; // sentinel: not checked in yet
             $localId = $point['localId'] ?? null;
-            if (!$attendanceId || $localId === null) continue;
+            if ($localId === null) continue;
 
-            if (!isset($checkedAttendance[$attendanceId])) {
-                $checkedAttendance[$attendanceId] =
-                    $this->Tracking_model->belongsToEmployee($attendanceId, (int) $employee['id']);
-            }
-            if (!$checkedAttendance[$attendanceId]) {
-                continue; // silently skip points that don't belong to this employee
+            if (!$isPending) {
+                if (!isset($checkedAttendance[$rawAttendanceId])) {
+                    $checkedAttendance[$rawAttendanceId] =
+                        $this->Tracking_model->belongsToEmployee($rawAttendanceId, (int) $employee['id']);
+                }
+                if (!$checkedAttendance[$rawAttendanceId]) {
+                    continue; // silently skip points that don't belong to this employee
+                }
             }
 
             $validRows[] = array(
-                'attendance_id' => $attendanceId,
+                // NULL (not 0) for pending points: attendance_id has a
+                // FOREIGN KEY to attendances(id), so it must be NULL,
+                // never a fake row id.
+                'attendance_id' => $isPending ? null : $rawAttendanceId,
                 'employee_id'   => $employee['id'],
                 'office_id'     => $employee['office_id'],
                 'latitude'      => (float) ($point['latitude'] ?? 0),
