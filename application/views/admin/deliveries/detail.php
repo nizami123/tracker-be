@@ -81,7 +81,7 @@
                         <?= $step['time'] ? html_escape(substr($step['time'], 11, 5)) : '' ?>
                     </div>
                     <div class="d-flex flex-column align-items-center" style="width:20px; flex-shrink:0;">
-                        <div style="width:10px;height:10px;border-radius:50%;background:#1E9E5A;"></div>
+                        <div style="width:10px;height:10px;border-radius:50%;background:#2F6FED;"></div>
                         <div style="width:1px;flex:1;background:#E5E8EB;"></div>
                     </div>
                     <div class="small pb-1"><?= html_escape($step['label']) ?></div>

@@ -73,7 +73,7 @@ document.addEventListener('DOMContentLoaded', function () {
         className: '', iconSize: [26, 26], iconAnchor: [13, 13]
     });
     const driverIcon = L.divIcon({
-        html: '<div style="background:#1E9E5A;color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(0,0,0,.3);"><i class="bi bi-truck-front-fill"></i></div>',
+        html: '<div style="background:#2F6FED;color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(0,0,0,.3);"><i class="bi bi-truck-front-fill"></i></div>',
         className: '', iconSize: [26, 26], iconAnchor: [13, 13]
     });
 

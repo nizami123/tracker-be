@@ -13,7 +13,7 @@
     <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Kantor</div><div class="fw-bold"><?= html_escape($attendance['office_name']) ?></div></div></div>
     <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Tanggal</div><div class="fw-bold"><?= html_escape($attendance['attendance_date']) ?></div></div></div>
     <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Jam Masuk</div><div class="fw-bold"><?= $attendance['check_in_time'] ? substr($attendance['check_in_time'], 11, 8) : '-' ?></div></div></div>
-    <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Jam Pulang</div><div class="fw-bold"><?= $attendance['check_out_time'] ? substr($attendance['check_out_time'], 11, 8) : 'Masih bekerja' ?></div></div></div>
+    <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Jam Pulang</div><div class="fw-bold"><?= $attendance['check_out_time'] ? substr($attendance['check_out_time'], 11, 8) : (!empty($attendance['is_pending']) ? 'Belum absen masuk' : 'Masih bekerja') ?></div></div></div>
     <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Status</div><div class="fw-bold"><?= html_escape($attendance['status']) ?></div></div></div>
     <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Total Titik</div><div class="fw-bold" id="totalPoints">-</div></div></div>
 </div>
@@ -33,7 +33,15 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const attendanceId = <?= (int) $attendance['id'] ?>;
+    // Revisi: a pending (not-yet-checked-in) session has no real
+    // attendance row, so it's addressed by employee_id against the
+    // _pending AJAX endpoints instead of attendance_id against the
+    // normal ones — everything else on this page (map, polling,
+    // rendering) is identical either way.
+    const isPending = <?= !empty($attendance['is_pending']) ? 'true' : 'false' ?>;
+    const trackingKey = <?= (int) ($attendance['is_pending'] ? $attendance['employee_id'] : $attendance['id']) ?>;
+    const pointsUrl = ADMIN_BASE_URL + 'admin/attendance_tracking/' + (isPending ? 'points_data_pending/' : 'points_data/') + trackingKey;
+    const latestUrl = ADMIN_BASE_URL + 'admin/attendance_tracking/' + (isPending ? 'latest_position_pending/' : 'latest_position/') + trackingKey;
     const isCheckedOut = <?= $attendance['check_out_time'] ? 'true' : 'false' ?>;
     const officeLat = <?= (float) $attendance['office_latitude'] ?>;
     const officeLng = <?= (float) $attendance['office_longitude'] ?>;
@@ -41,6 +49,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const liveBadge = document.getElementById('liveBadge');
     function setBadge(active) {
+        if (isPending) {
+            liveBadge.innerHTML = '<i class="bi bi-clock-history"></i> BELUM ABSEN MASUK — TRACKING AKTIF';
+            liveBadge.className = 'badge-at ms-auto badge-at-orange';
+            return;
+        }
         liveBadge.innerHTML = active
             ? '<i class="bi bi-circle-fill" style="font-size:8px;"></i> TRACKING AKTIF'
             : '<i class="bi bi-check-circle-fill"></i> TRACKING SELESAI';
@@ -55,11 +68,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Office marker + radius circle.
     const officeIcon = L.divIcon({
-        html: '<div style="background:#1E9E5A;color:#fff;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.3);"><i class="bi bi-building"></i></div>',
+        html: '<div style="background:#2F6FED;color:#fff;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.3);"><i class="bi bi-building"></i></div>',
         className: '', iconSize: [30, 30], iconAnchor: [15, 15]
     });
     L.marker([officeLat, officeLng], { icon: officeIcon }).addTo(map).bindPopup('Kantor');
-    L.circle([officeLat, officeLng], { radius: officeRadius, color: '#1E9E5A', weight: 1, fillOpacity: .08 }).addTo(map);
+    L.circle([officeLat, officeLng], { radius: officeRadius, color: '#2F6FED', weight: 1, fillOpacity: .08 }).addTo(map);
 
     let polyline = null;
     let markers = [];
@@ -85,7 +98,7 @@ document.addEventListener('DOMContentLoaded', function () {
         markers = [];
 
         const latlngs = points.map(p => [parseFloat(p.latitude), parseFloat(p.longitude)]);
-        polyline = L.polyline(latlngs, { color: '#1E9E5A', weight: 4 }).addTo(map);
+        polyline = L.polyline(latlngs, { color: '#2F6FED', weight: 4 }).addTo(map);
 
         points.forEach((p, idx) => {
             let icon;
@@ -94,7 +107,7 @@ document.addEventListener('DOMContentLoaded', function () {
             } else if (idx === points.length - 1) {
                 icon = L.divIcon({ html: '<div style="background:#E53935;color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(0,0,0,.3);"><i class="bi bi-geo-alt-fill"></i></div>', className: '', iconSize: [24, 24], iconAnchor: [12, 12] });
             } else {
-                icon = L.divIcon({ html: '<div style="background:#fff;border:2px solid #1E9E5A;width:12px;height:12px;border-radius:50%;"></div>', className: '', iconSize: [12, 12], iconAnchor: [6, 6] });
+                icon = L.divIcon({ html: '<div style="background:#fff;border:2px solid #2F6FED;width:12px;height:12px;border-radius:50%;"></div>', className: '', iconSize: [12, 12], iconAnchor: [6, 6] });
             }
             const marker = L.marker([p.latitude, p.longitude], { icon }).addTo(map);
             marker.on('click', function () {
@@ -113,7 +126,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Initial full load (once).
-    fetch(ADMIN_BASE_URL + 'admin/attendance_tracking/points_data/' + attendanceId)
+    fetch(pointsUrl)
         .then(r => r.json()).then(res => {
             if (res.success) {
                 if (res.data.length === 0) {
@@ -130,13 +143,13 @@ document.addEventListener('DOMContentLoaded', function () {
     // whole polyline on a timer.
     if (!isCheckedOut) {
         var pollInterval = setInterval(function () {
-            fetch(ADMIN_BASE_URL + 'admin/attendance_tracking/latest_position/' + attendanceId)
+            fetch(latestUrl)
                 .then(r => r.json()).then(res => {
                     if (!res.success) return;
                     setBadge(res.is_active);
                     if (res.point && res.point.recorded_at !== lastPointTime) {
                         // A genuinely new point arrived — reload the full polyline once to include it.
-                        fetch(ADMIN_BASE_URL + 'admin/attendance_tracking/points_data/' + attendanceId)
+                        fetch(pointsUrl)
                             .then(r => r.json()).then(res2 => { if (res2.success) renderPoints(res2.data); });
                     }
                     if (!res.is_active) {

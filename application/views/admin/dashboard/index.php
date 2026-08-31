@@ -92,8 +92,12 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const primary = '#1E9E5A';
-    const palette = ['#1E9E5A', '#F5A623', '#E53935', '#2E7BE0', '#8A8F98'];
+    const primary = '#2F6FED';
+    // palette[3] intentionally distinct from palette[0] (both used
+    // together in the "Pengiriman Kendaraan" doughnut chart below) —
+    // teal instead of another blue so the two slices stay visually
+    // distinguishable now that the brand primary color is blue too.
+    const palette = ['#2F6FED', '#F5A623', '#E53935', '#17A2B8', '#8A8F98'];
 
     function fetchJSON(url, cb) {
         fetch(url).then(r => r.json()).then(cb).catch(() => {});

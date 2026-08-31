@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login Admin - Employee Tracker</title>
+    <title>Login Admin - Samsu Tracker</title>
+    <link rel="icon" type="image/png" href="<?= base_url('assets/admin/img/logo.png') ?>">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="<?= base_url('assets/admin/css/admin.css') ?>">
@@ -13,8 +14,10 @@
 <div class="at-login-wrap">
     <div class="at-login-card">
         <div class="text-center">
-            <div class="at-login-logo"><i class="bi bi-geo-alt-fill"></i></div>
-            <h5 class="fw-bold mb-0">Employee Tracker</h5>
+            <div class="at-login-logo">
+                <img src="<?= base_url('assets/admin/img/logo.png') ?>" alt="Samsu Tracker" style="width:100%;height:100%;object-fit:contain;">
+            </div>
+            <h5 class="fw-bold mb-0">Samsu Tracker</h5>
             <p class="text-gray small mb-4">Panel Admin</p>
         </div>
 

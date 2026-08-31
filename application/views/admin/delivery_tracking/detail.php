@@ -60,11 +60,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (hasDestination) {
         const officeIcon = L.divIcon({
-            html: '<div style="background:#1E9E5A;color:#fff;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.3);"><i class="bi bi-building"></i></div>',
+            html: '<div style="background:#2F6FED;color:#fff;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.3);"><i class="bi bi-building"></i></div>',
             className: '', iconSize: [30, 30], iconAnchor: [15, 15]
         });
         L.marker([destLat, destLng], { icon: officeIcon }).addTo(map).bindPopup('Kantor Tujuan');
-        L.circle([destLat, destLng], { radius: destRadius, color: '#1E9E5A', weight: 1, fillOpacity: .08 }).addTo(map);
+        L.circle([destLat, destLng], { radius: destRadius, color: '#2F6FED', weight: 1, fillOpacity: .08 }).addTo(map);
     }
 
     let polyline = null;
@@ -95,7 +95,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         const latlngs = points.map(p => [parseFloat(p.latitude), parseFloat(p.longitude)]);
-        polyline = L.polyline(latlngs, { color: '#1E9E5A', weight: 4 }).addTo(map);
+        polyline = L.polyline(latlngs, { color: '#2F6FED', weight: 4 }).addTo(map);
 
         points.forEach((p, idx) => {
             let icon;
@@ -104,7 +104,7 @@ document.addEventListener('DOMContentLoaded', function () {
             } else if (idx === points.length - 1) {
                 icon = L.divIcon({ html: '<div style="background:#E53935;color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(0,0,0,.3);"><i class="bi bi-truck"></i></div>', className: '', iconSize: [24, 24], iconAnchor: [12, 12] });
             } else {
-                icon = L.divIcon({ html: '<div style="background:#fff;border:2px solid #1E9E5A;width:12px;height:12px;border-radius:50%;"></div>', className: '', iconSize: [12, 12], iconAnchor: [6, 6] });
+                icon = L.divIcon({ html: '<div style="background:#fff;border:2px solid #2F6FED;width:12px;height:12px;border-radius:50%;"></div>', className: '', iconSize: [12, 12], iconAnchor: [6, 6] });
             }
             const marker = L.marker([p.latitude, p.longitude], { icon }).addTo(map);
             marker.on('click', function () {

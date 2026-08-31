@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= isset($pageTitle) ? $pageTitle . ' - ' : '' ?>Employee Tracker Admin</title>
+    <title><?= isset($pageTitle) ? $pageTitle . ' - ' : '' ?>Samsu Tracker Admin</title>
+    <link rel="icon" type="image/png" href="<?= base_url('assets/admin/img/logo.png') ?>">
 
     <!-- Bootstrap 5 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
@@ -25,8 +26,10 @@
             <i class="bi bi-list"></i>
         </button>
         <div class="brand">
-            <span class="brand-icon"><i class="bi bi-geo-alt-fill"></i></span>
-            <span class="d-none d-sm-inline">Employee Tracker Admin</span>
+            <span class="brand-icon">
+                <img src="<?= base_url('assets/admin/img/logo.png') ?>" alt="Samsu Tracker" style="width:100%;height:100%;object-fit:contain;padding:4px;">
+            </span>
+            <span class="d-none d-sm-inline">Samsu Tracker Admin</span>
         </div>
     </div>
 

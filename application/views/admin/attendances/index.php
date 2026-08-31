@@ -57,6 +57,7 @@
                     <th>Lokasi Masuk</th>
                     <th>Jam Pulang</th>
                     <th>Lokasi Pulang</th>
+                    <th>Foto</th>
                     <th>Status</th>
                     <th class="text-end">Aksi</th>
                 </tr>
@@ -74,6 +75,16 @@ document.addEventListener('DOMContentLoaded', function () {
         const map = { PRESENT: ['Hadir', 'badge-at-green'], LATE: ['Terlambat', 'badge-at-orange'], ABSENT: ['Tidak Hadir', 'badge-at-red'] };
         const m = map[s] || [s, 'badge-at-gray'];
         return `<span class="badge-at ${m[1]}">${m[0]}</span>`;
+    }
+
+    // Sama seperti pola foto/lampiran di halaman Pengajuan: nama file
+    // disimpan apa adanya oleh server, URL lengkap dibangun di sini.
+    function photoThumb(filename, label) {
+        if (!filename) return '';
+        const url = ADMIN_BASE_URL + 'uploads/attendance_photos/' + filename;
+        return `<a href="${url}" target="_blank" title="Foto ${label}">
+            <img src="${url}" alt="Foto ${label}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;" class="border">
+        </a>`;
     }
 
     const table = $('#tblAttendances').DataTable({
@@ -98,6 +109,15 @@ document.addEventListener('DOMContentLoaded', function () {
             { data: 'check_in_distance', render: d => d !== null ? Math.round(d) + ' m dari kantor' : '-' },
             { data: 'check_out_time', render: d => d ? d.substring(11, 19) : '-' },
             { data: 'check_out_distance', render: d => d !== null ? Math.round(d) + ' m dari kantor' : '-' },
+            {
+                data: null, orderable: false,
+                render: row => {
+                    const masuk = photoThumb(row.check_in_photo, 'Masuk');
+                    const pulang = photoThumb(row.check_out_photo, 'Pulang');
+                    if (!masuk && !pulang) return '<span class="text-gray small">-</span>';
+                    return `<div class="d-flex gap-1">${masuk}${pulang}</div>`;
+                }
+            },
             { data: 'status', render: statusBadge },
             {
                 data: null, orderable: false, className: 'text-end',
