@@ -22,12 +22,20 @@
                             <tr><td colspan="5" class="text-center text-gray py-3">Tidak ada.</td></tr>
                         <?php endif; ?>
                         <?php foreach ($employees as $e): ?>
+                            <?php $empDetailUrl = !empty($e['is_pending'])
+                                ? site_url('admin/attendance_tracking/detail_pending/' . $e['employee_id'])
+                                : site_url('admin/attendance_tracking/detail/' . $e['id']); ?>
                             <tr>
-                                <td><?= html_escape($e['person_name']) ?></td>
+                                <td>
+                                    <?= html_escape($e['person_name']) ?>
+                                    <?php if (!empty($e['is_pending'])): ?>
+                                        <span class="badge-at badge-at-orange ms-1" style="font-size:10px;">BELUM ABSEN</span>
+                                    <?php endif; ?>
+                                </td>
                                 <td><?= html_escape($e['office_name']) ?></td>
                                 <td><?= $e['started_at'] ? html_escape(substr($e['started_at'], 11, 8)) : '-' ?></td>
                                 <td><?= $e['last_update'] ? html_escape(substr($e['last_update'], 11, 8)) : '-' ?></td>
-                                <td><a href="<?= site_url('admin/attendance_tracking/detail/' . $e['id']) ?>" class="btn btn-sm btn-outline-at-primary"><i class="bi bi-geo-alt"></i></a></td>
+                                <td><a href="<?= $empDetailUrl ?>" class="btn btn-sm btn-outline-at-primary"><i class="bi bi-geo-alt"></i></a></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -96,7 +104,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
         [...employees, ...drivers].forEach(item => {
             if (!item.last_lat || !item.last_lng) return;
-            const key = item.tracker_type + '-' + item.id;
+            // Karyawan pending (belum absen masuk) punya id=0, jadi kuncinya
+            // pakai employee_id supaya tidak bentrok antar karyawan pending.
+            const key = item.tracker_type === 'EMPLOYEE' ? ('EMPLOYEE-' + item.employee_id) : (item.tracker_type + '-' + item.id);
             seen.add(key);
             const latlng = [parseFloat(item.last_lat), parseFloat(item.last_lng)];
             allLatLngs.push(latlng);
