@@ -93,36 +93,61 @@ document.addEventListener('DOMContentLoaded', function () {
     function renderPoints(points) {
         if (points.length === 0) return;
 
+        // Perbaikan: Total Titik & lastPointTime langsung diisi di sini,
+        // SEBELUM proses gambar polyline/marker di peta. Sebelumnya baris
+        // ini ada di paling bawah fungsi ini — jadi kalau ADA SATU SAJA
+        // titik dengan lat/lng yang tidak valid (bikin Leaflet melempar
+        // error "Invalid LatLng" saat bikin polyline/marker), seluruh
+        // fungsi berhenti di tengah jalan (exception) dan baris ini
+        // (yang ada di bawah) tidak pernah kejalan — hasilnya "Total
+        // Titik" tetap kosong ("-") padahal datanya di database banyak.
+        document.getElementById('totalPoints').textContent = points.length;
+        lastPointTime = points[points.length - 1].recorded_at;
+
         if (polyline) map.removeLayer(polyline);
         markers.forEach(m => map.removeLayer(m));
         markers = [];
 
-        const latlngs = points.map(p => [parseFloat(p.latitude), parseFloat(p.longitude)]);
-        polyline = L.polyline(latlngs, { color: '#2F6FED', weight: 4 }).addTo(map);
-
-        points.forEach((p, idx) => {
-            let icon;
-            if (idx === 0) {
-                icon = L.divIcon({ html: '<div style="background:#2E7BE0;color:#fff;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;box-shadow:0 2px 4px rgba(0,0,0,.3);">A</div>', className: '', iconSize: [22, 22], iconAnchor: [11, 11] });
-            } else if (idx === points.length - 1) {
-                icon = L.divIcon({ html: '<div style="background:#E53935;color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(0,0,0,.3);"><i class="bi bi-geo-alt-fill"></i></div>', className: '', iconSize: [24, 24], iconAnchor: [12, 12] });
-            } else {
-                icon = L.divIcon({ html: '<div style="background:#fff;border:2px solid #2F6FED;width:12px;height:12px;border-radius:50%;"></div>', className: '', iconSize: [12, 12], iconAnchor: [6, 6] });
-            }
-            const marker = L.marker([p.latitude, p.longitude], { icon }).addTo(map);
-            marker.on('click', function () {
-                document.getElementById('pointModalBody').innerHTML = pointPopupHtml(p);
-                new bootstrap.Modal(document.getElementById('pointModal')).show();
-            });
-            markers.push(marker);
+        // Buang titik yang lat/lng-nya tidak valid supaya satu baris data
+        // rusak tidak menggagalkan seluruh peta (tetap dihitung di Total
+        // Titik di atas, tapi tidak digambar).
+        const validPoints = points.filter(p => {
+            const lat = parseFloat(p.latitude), lng = parseFloat(p.longitude);
+            return Number.isFinite(lat) && Number.isFinite(lng);
         });
 
-        document.getElementById('totalPoints').textContent = points.length;
-        lastPointTime = points[points.length - 1].recorded_at;
+        if (validPoints.length === 0) return;
 
-        // Auto fit bounds so the whole route + office are visible.
-        const bounds = L.latLngBounds(latlngs.concat([[officeLat, officeLng]]));
-        map.fitBounds(bounds, { padding: [30, 30] });
+        try {
+            const latlngs = validPoints.map(p => [parseFloat(p.latitude), parseFloat(p.longitude)]);
+            polyline = L.polyline(latlngs, { color: '#2F6FED', weight: 4 }).addTo(map);
+
+            validPoints.forEach((p, idx) => {
+                let icon;
+                if (idx === 0) {
+                    icon = L.divIcon({ html: '<div style="background:#2E7BE0;color:#fff;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;box-shadow:0 2px 4px rgba(0,0,0,.3);">A</div>', className: '', iconSize: [22, 22], iconAnchor: [11, 11] });
+                } else if (idx === validPoints.length - 1) {
+                    icon = L.divIcon({ html: '<div style="background:#E53935;color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(0,0,0,.3);"><i class="bi bi-geo-alt-fill"></i></div>', className: '', iconSize: [24, 24], iconAnchor: [12, 12] });
+                } else {
+                    icon = L.divIcon({ html: '<div style="background:#fff;border:2px solid #2F6FED;width:12px;height:12px;border-radius:50%;"></div>', className: '', iconSize: [12, 12], iconAnchor: [6, 6] });
+                }
+                const marker = L.marker([p.latitude, p.longitude], { icon }).addTo(map);
+                marker.on('click', function () {
+                    document.getElementById('pointModalBody').innerHTML = pointPopupHtml(p);
+                    new bootstrap.Modal(document.getElementById('pointModal')).show();
+                });
+                markers.push(marker);
+            });
+
+            // Auto fit bounds so the whole route + office are visible.
+            const bounds = L.latLngBounds(latlngs.concat([[officeLat, officeLng]]));
+            map.fitBounds(bounds, { padding: [30, 30] });
+        } catch (err) {
+            // Total Titik sudah terisi di atas walau bagian gambar peta
+            // ini gagal — jadi admin tetap tahu jumlah titiknya, cuma
+            // petanya yang tidak bisa ditampilkan.
+            console.error('Gagal menggambar titik tracking di peta:', err);
+        }
     }
 
     // Initial full load (once).
@@ -135,8 +160,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 } else {
                     renderPoints(res.data);
                 }
+            } else {
+                console.error('points_data gagal:', res.message || res);
             }
-        });
+        })
+        .catch(err => console.error('Gagal memuat titik tracking:', err));
 
     // Realtime polling: only fetch the single latest point every 30s,
     // and only re-render if it's actually new — never re-fetch the
