@@ -65,7 +65,11 @@ class Attendance_tracking extends MY_Admin_Controller
         $attendance = $this->Admin_tracking_model->getAttendanceDetail((int) $attendanceId, $this->officeScope());
         if (!$attendance) return $this->json(array('success' => false, 'message' => 'Data tidak ditemukan'), 404);
 
-        $points = $this->Admin_tracking_model->getTrackingPoints((int) $attendanceId);
+        // employee_id + attendance_date, not attendance_id — see
+        // Admin_tracking_model::getTrackingPoints() docblock: a point can
+        // still be attendance_id NULL for an employee who already
+        // checked in today (late offline sync), and must still show up.
+        $points = $this->Admin_tracking_model->getTrackingPoints((int) $attendance['employee_id'], $attendance['attendance_date']);
         $this->json(array('success' => true, 'data' => $points));
     }
 
@@ -89,7 +93,8 @@ class Attendance_tracking extends MY_Admin_Controller
         $attendance = $this->Admin_tracking_model->getAttendanceDetail((int) $attendanceId, $this->officeScope());
         if (!$attendance) return $this->json(array('success' => false, 'message' => 'Data tidak ditemukan'), 404);
 
-        $point = $this->Admin_tracking_model->getLatestPoint((int) $attendanceId);
+        // employee_id + attendance_date, same reasoning as points_data() above.
+        $point = $this->Admin_tracking_model->getLatestPoint((int) $attendance['employee_id'], $attendance['attendance_date']);
         $this->json(array(
             'success'      => true,
             'is_active'    => empty($attendance['check_out_time']),

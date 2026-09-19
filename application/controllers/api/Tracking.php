@@ -9,18 +9,25 @@ class Tracking extends MY_Controller
      * POST /api/tracking/sync
      * Batch-inserts pending tracking points saved locally by the
      * Android foreground service. employee_id/office_id on each point
-     * are trusted for storage but every point's attendance_id is
-     * cross-checked against the authenticated employee before insert,
-     * so one employee can never write tracking data into another
-     * employee's attendance record.
+     * always come from the authenticated employee (never trusted from
+     * the client), so tracking data is safely attributed without ever
+     * needing attendance_id for that purpose.
      *
-     * The Android app uses attendance_id = 0 as a sentinel for points
-     * recorded BEFORE check-in (no attendance record exists yet). Those
-     * points are still inserted — with attendance_id stored as NULL —
-     * instead of being dropped, so the employee's location is never
-     * lost just because they haven't absen masuk yet. They get claimed
-     * by the real attendance record once check-in happens (see
-     * Attendance::check_in() -> Tracking_model::reassignPendingPoints()).
+     * attendance_id is treated as a pure best-effort label, never a
+     * gate: the Android app sends attendance_id = 0 as a sentinel for
+     * points recorded BEFORE check-in (no attendance record exists
+     * yet). A point is NEVER dropped just because its attendance_id is
+     * missing OR stale (e.g. it no longer belongs to this employee —
+     * the attendance record could have been edited/removed by an admin,
+     * or the app cached an id from a previous day). In every case the
+     * point is still stored, falling back to attendance_id = NULL, so
+     * a client never loses tracking data over a mismatched id. Points
+     * later get their attendance_id filled in once check-in happens
+     * (see Attendance::check_in() -> Tracking_model::reassignPendingPoints()).
+     *
+     * A point is only reported back as synced (and only then does the
+     * Android app stop retrying/uploading it) once the database insert
+     * for it has actually succeeded — see Tracking_model::insertBatch().
      */
     public function sync()
     {
@@ -35,30 +42,37 @@ class Tracking extends MY_Controller
         $this->load->model('Tracking_model');
 
         $validRows = array();
-        $syncedIds = array();
         $checkedAttendance = array(); // cache ownership checks per attendance_id
 
         foreach ($points as $point) {
-            $rawAttendanceId = (int) ($point['attendance_id'] ?? 0);
-            $isPending = $rawAttendanceId <= 0; // sentinel: not checked in yet
             $localId = $point['localId'] ?? null;
             if ($localId === null) continue;
+
+            $rawAttendanceId = (int) ($point['attendance_id'] ?? 0);
+            $isPending = $rawAttendanceId <= 0; // sentinel: not checked in yet
+            $attendanceIdToStore = null;
 
             if (!$isPending) {
                 if (!isset($checkedAttendance[$rawAttendanceId])) {
                     $checkedAttendance[$rawAttendanceId] =
                         $this->Tracking_model->belongsToEmployee($rawAttendanceId, (int) $employee['id']);
                 }
-                if (!$checkedAttendance[$rawAttendanceId]) {
-                    continue; // silently skip points that don't belong to this employee
+                if ($checkedAttendance[$rawAttendanceId]) {
+                    $attendanceIdToStore = $rawAttendanceId;
                 }
+                // If it doesn't belong to this employee (or no longer
+                // exists), we do NOT skip the point anymore — tracking
+                // must never depend on attendance_id. It's stored below
+                // with attendance_id NULL instead, same as a pre-check-in
+                // point, so the location data is never lost.
             }
 
+            // NULL (not 0) when there's no valid attendance link:
+            // attendance_id has a FOREIGN KEY to attendances(id), so it
+            // must be NULL, never a fake row id.
             $validRows[] = array(
-                // NULL (not 0) for pending points: attendance_id has a
-                // FOREIGN KEY to attendances(id), so it must be NULL,
-                // never a fake row id.
-                'attendance_id' => $isPending ? null : $rawAttendanceId,
+                'localId'       => $localId,
+                'attendance_id' => $attendanceIdToStore,
                 'employee_id'   => $employee['id'],
                 'office_id'     => $employee['office_id'],
                 'latitude'      => (float) ($point['latitude'] ?? 0),
@@ -69,10 +83,12 @@ class Tracking extends MY_Controller
                 'battery_level' => $point['battery_level'] ?? null,
                 'recorded_at'   => $point['recorded_at'] ?? now_datetime(),
             );
-            $syncedIds[] = $localId;
         }
 
-        $this->Tracking_model->insertBatch($validRows);
+        // insertBatch() actually inserts each row and returns only the
+        // localIds that were confirmed saved (or already present) in the
+        // database — never assume success up front (see method docblock).
+        $syncedIds = $this->Tracking_model->insertBatch($validRows);
 
         $this->json_response(array('success' => true, 'synced_ids' => $syncedIds), 200);
     }

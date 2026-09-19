@@ -16,7 +16,7 @@ class Admin_attendance_model extends CI_Model
                 employees.employee_code,
                 employees.nip,
                 offices.name as office_name,
-                (SELECT COUNT(*) FROM attendance_tracking WHERE attendance_tracking.attendance_id = attendances.id) as tracking_count
+                (SELECT COUNT(*) FROM attendance_tracking WHERE attendance_tracking.employee_id = attendances.employee_id AND DATE(attendance_tracking.recorded_at) = attendances.attendance_date) as tracking_count
             ")
             ->from('attendances')
             ->join('employees', 'employees.id = attendances.employee_id')

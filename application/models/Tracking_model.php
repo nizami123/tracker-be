@@ -3,31 +3,57 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Tracking_model extends CI_Model
 {
-    public function insertBatch(array $rows): void
+    /**
+     * Inserts every row and returns only the 'localId' values that were
+     * actually confirmed saved (or already present) in the database.
+     *
+     * Each row is a separate INSERT IGNORE wrapped in its own try/catch:
+     * one bad/failing row (a transient DB error, a lock timeout, an
+     * unexpected value) must never abort the rest of the batch or leave
+     * the caller unable to tell which points made it in — Tracking::sync()
+     * only reports back the localIds returned here as synced, so the
+     * Android app keeps retrying anything that isn't in this list instead
+     * of wrongly deleting/marking-synced a point that was never saved.
+     * attendance_id may be NULL (points recorded before check-in exists
+     * yet, or whose attendance_id no longer belongs to this employee —
+     * see Tracking::sync()) — still inserted, tracking never depends on
+     * having a valid attendance_id.
+     */
+    public function insertBatch(array $rows): array
     {
-        if (empty($rows)) return;
-        // insert_batch skips rows that violate the unique(attendance_id,
-        // employee_id, recorded_at) constraint only if we catch duplicate
-        // errors per row; CI3's insert_batch does one multi-row INSERT, so
-        // instead we insert one by one with INSERT IGNORE semantics to
-        // tolerate a point being re-sent after a flaky network ack.
-        // attendance_id is NULL for points recorded before check-in
-        // exists yet (see Tracking::sync()) — still inserted so the
-        // employee's location is never silently dropped.
+        $syncedLocalIds = array();
+        if (empty($rows)) return $syncedLocalIds;
+
         foreach ($rows as $row) {
-            $this->db->query(
-                "INSERT IGNORE INTO attendance_tracking
-                    (attendance_id, employee_id, office_id, latitude, longitude,
-                     accuracy, speed, bearing, battery_level, recorded_at, server_received_at, created_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                array(
-                    $row['attendance_id'], $row['employee_id'], $row['office_id'],
-                    $row['latitude'], $row['longitude'], $row['accuracy'],
-                    $row['speed'], $row['bearing'], $row['battery_level'],
-                    $row['recorded_at'], now_datetime(), now_datetime(),
-                )
-            );
+            try {
+                $success = $this->db->query(
+                    "INSERT IGNORE INTO attendance_tracking
+                        (attendance_id, employee_id, office_id, latitude, longitude,
+                         accuracy, speed, bearing, battery_level, recorded_at, server_received_at, created_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    array(
+                        $row['attendance_id'], $row['employee_id'], $row['office_id'],
+                        $row['latitude'], $row['longitude'], $row['accuracy'],
+                        $row['speed'], $row['bearing'], $row['battery_level'],
+                        $row['recorded_at'], now_datetime(), now_datetime(),
+                    )
+                );
+
+                if ($success) {
+                    // INSERT IGNORE: $success is true even when the row
+                    // was a duplicate of one already stored (unique_tracking)
+                    // — that still counts as "safely in the database", so
+                    // it's correct to report it as synced either way.
+                    $syncedLocalIds[] = $row['localId'];
+                } else {
+                    log_message('error', 'Tracking insert returned false: employee_id=' . $row['employee_id'] . ' recorded_at=' . $row['recorded_at']);
+                }
+            } catch (\Throwable $e) {
+                log_message('error', 'Tracking insert threw: employee_id=' . $row['employee_id'] . ' recorded_at=' . $row['recorded_at'] . ' — ' . $e->getMessage());
+            }
         }
+
+        return $syncedLocalIds;
     }
 
     /**

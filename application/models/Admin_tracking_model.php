@@ -27,18 +27,31 @@ class Admin_tracking_model extends CI_Model
         return $this->db->get()->row_array();
     }
 
-    public function getTrackingPoints(int $attendanceId): array
+    /**
+     * Keyed by employee_id + tanggal, NOT attendance_id: a point can be
+     * recorded with attendance_id NULL even for an employee who already
+     * checked in today — e.g. it was queued offline on the device before
+     * check-in and only reached the server (still tagged as "pending")
+     * after check-in already ran and reassignPendingPoints() had already
+     * fired. Matching on employee_id + tanggal instead of the exact
+     * attendance_id picks up those orphaned rows too, so the detail page
+     * always shows every point recorded for this employee today,
+     * regardless of whether it ever got labeled with this attendance_id.
+     */
+    public function getTrackingPoints(int $employeeId, string $attendanceDate): array
     {
-        return $this->db->where('attendance_id', $attendanceId)
+        return $this->db->where('employee_id', $employeeId)
+            ->where('DATE(recorded_at)', $attendanceDate)
             ->order_by('recorded_at', 'ASC')
             ->get('attendance_tracking')
             ->result_array();
     }
 
     /** Just the newest point — used by the 30s realtime polling endpoint (cheap query, no full reload). */
-    public function getLatestPoint(int $attendanceId)
+    public function getLatestPoint(int $employeeId, string $attendanceDate)
     {
-        return $this->db->where('attendance_id', $attendanceId)
+        return $this->db->where('employee_id', $employeeId)
+            ->where('DATE(recorded_at)', $attendanceDate)
             ->order_by('recorded_at', 'DESC')
             ->limit(1)
             ->get('attendance_tracking')
@@ -62,8 +75,8 @@ class Admin_tracking_model extends CI_Model
                 employees.name as employee_name,
                 employees.employee_code,
                 offices.name as office_name,
-                (SELECT COUNT(*) FROM attendance_tracking WHERE attendance_tracking.attendance_id = attendances.id) as tracking_count,
-                (SELECT MAX(recorded_at) FROM attendance_tracking WHERE attendance_tracking.attendance_id = attendances.id) as last_point_at
+                (SELECT COUNT(*) FROM attendance_tracking WHERE attendance_tracking.employee_id = attendances.employee_id AND DATE(attendance_tracking.recorded_at) = attendances.attendance_date) as tracking_count,
+                (SELECT MAX(recorded_at) FROM attendance_tracking WHERE attendance_tracking.employee_id = attendances.employee_id AND DATE(attendance_tracking.recorded_at) = attendances.attendance_date) as last_point_at
             ")
             ->from('attendances')
             ->join('employees', 'employees.id = attendances.employee_id')

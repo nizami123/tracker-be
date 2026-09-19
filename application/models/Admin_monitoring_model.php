@@ -40,7 +40,19 @@ class Admin_monitoring_model extends CI_Model
         return array_merge($linked, $pending);
     }
 
-    /** Karyawan dengan attendance_id terisi (sudah pernah absen masuk hari ini) yang punya titik tracking hari ini. */
+    /**
+     * Karyawan yang sudah pernah absen masuk hari ini yang punya titik
+     * tracking hari ini. Dikunci ke employee_id + tanggal, BUKAN
+     * attendance_id: sebuah titik bisa saja masih attendance_id NULL
+     * meskipun karyawannya sudah absen masuk — misalnya titik itu
+     * direkam offline sebelum absen lalu baru sampai ke server SETELAH
+     * absen masuk (dan reassignPendingPoints() sudah keburu jalan
+     * duluan). Kalau masih dikunci ke attendance_id, karyawan begini
+     * akan hilang total dari halaman ini: EXISTS di bawah gagal karena
+     * baris trackingnya belum attendance_id, sementara guard NOT EXISTS
+     * di getPendingEmployeeTracking() juga mengecualikan dia karena dia
+     * sudah punya attendance hari ini.
+     */
     private function getLinkedEmployeeTracking(?int $officeId): array
     {
         $today = $this->db->escape(today_date());
@@ -49,19 +61,19 @@ class Admin_monitoring_model extends CI_Model
                 attendances.id, attendances.employee_id, 0 as is_pending, 'EMPLOYEE' as tracker_type,
                 employees.name as person_name, employees.employee_code as person_code,
                 offices.name as office_name,
-                (SELECT MIN(recorded_at) FROM attendance_tracking WHERE attendance_tracking.attendance_id = attendances.id AND DATE(recorded_at) = {$today}) as started_at,
-                (SELECT COUNT(*) FROM attendance_tracking WHERE attendance_tracking.attendance_id = attendances.id AND DATE(recorded_at) = {$today}) as point_count,
-                (SELECT latitude FROM attendance_tracking WHERE attendance_tracking.attendance_id = attendances.id AND DATE(recorded_at) = {$today} ORDER BY recorded_at DESC LIMIT 1) as last_lat,
-                (SELECT longitude FROM attendance_tracking WHERE attendance_tracking.attendance_id = attendances.id AND DATE(recorded_at) = {$today} ORDER BY recorded_at DESC LIMIT 1) as last_lng,
-                (SELECT accuracy FROM attendance_tracking WHERE attendance_tracking.attendance_id = attendances.id AND DATE(recorded_at) = {$today} ORDER BY recorded_at DESC LIMIT 1) as last_accuracy,
-                (SELECT speed FROM attendance_tracking WHERE attendance_tracking.attendance_id = attendances.id AND DATE(recorded_at) = {$today} ORDER BY recorded_at DESC LIMIT 1) as last_speed,
-                (SELECT recorded_at FROM attendance_tracking WHERE attendance_tracking.attendance_id = attendances.id AND DATE(recorded_at) = {$today} ORDER BY recorded_at DESC LIMIT 1) as last_update
+                (SELECT MIN(recorded_at) FROM attendance_tracking WHERE attendance_tracking.employee_id = attendances.employee_id AND DATE(recorded_at) = {$today}) as started_at,
+                (SELECT COUNT(*) FROM attendance_tracking WHERE attendance_tracking.employee_id = attendances.employee_id AND DATE(recorded_at) = {$today}) as point_count,
+                (SELECT latitude FROM attendance_tracking WHERE attendance_tracking.employee_id = attendances.employee_id AND DATE(recorded_at) = {$today} ORDER BY recorded_at DESC LIMIT 1) as last_lat,
+                (SELECT longitude FROM attendance_tracking WHERE attendance_tracking.employee_id = attendances.employee_id AND DATE(recorded_at) = {$today} ORDER BY recorded_at DESC LIMIT 1) as last_lng,
+                (SELECT accuracy FROM attendance_tracking WHERE attendance_tracking.employee_id = attendances.employee_id AND DATE(recorded_at) = {$today} ORDER BY recorded_at DESC LIMIT 1) as last_accuracy,
+                (SELECT speed FROM attendance_tracking WHERE attendance_tracking.employee_id = attendances.employee_id AND DATE(recorded_at) = {$today} ORDER BY recorded_at DESC LIMIT 1) as last_speed,
+                (SELECT recorded_at FROM attendance_tracking WHERE attendance_tracking.employee_id = attendances.employee_id AND DATE(recorded_at) = {$today} ORDER BY recorded_at DESC LIMIT 1) as last_update
             ", false)
             ->from('attendances')
             ->join('employees', 'employees.id = attendances.employee_id')
             ->join('offices', 'offices.id = attendances.office_id')
             ->where(
-                "EXISTS (SELECT 1 FROM attendance_tracking WHERE attendance_tracking.attendance_id = attendances.id AND DATE(attendance_tracking.recorded_at) = {$today})",
+                "EXISTS (SELECT 1 FROM attendance_tracking WHERE attendance_tracking.employee_id = attendances.employee_id AND DATE(attendance_tracking.recorded_at) = {$today})",
                 null,
                 false
             );
@@ -96,8 +108,18 @@ class Admin_monitoring_model extends CI_Model
             FROM (SELECT DISTINCT employee_id FROM attendance_tracking WHERE attendance_id IS NULL AND DATE(recorded_at) = ?) as pending
             JOIN employees ON employees.id = pending.employee_id
             JOIN offices ON offices.id = employees.office_id
+            -- Backstop yang sama seperti Admin_tracking_model::getPendingTrackingList() —
+            -- kalau ternyata sudah ada attendance hari ini, jangan tampilkan di sini juga
+            -- (mencegah karyawan yang sama muncul dobel: sebagai pending & sebagai linked).
             WHERE NOT EXISTS (SELECT 1 FROM attendances a2 WHERE a2.employee_id = pending.employee_id AND a2.attendance_date = ?)
         ";
+        // 9 tanda "?" di query di atas: 7 di subquery SELECT (started_at,
+        // point_count, last_lat, last_lng, last_accuracy, last_speed,
+        // last_update) + 1 di subquery FROM (pending) + 1 di WHERE NOT
+        // EXISTS. Jumlah ini HARUS sama persis dengan jumlah elemen di
+        // $params, kalau tidak CodeIgniter diam-diam batal melakukan
+        // binding dan mengirim SQL mentah dengan tanda "?" apa adanya ke
+        // MariaDB (persis error 1064 yang sebelumnya muncul).
         $params = array_fill(0, 9, $today);
 
         if ($officeId) {
