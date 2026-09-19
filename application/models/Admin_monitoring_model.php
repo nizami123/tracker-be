@@ -96,12 +96,9 @@ class Admin_monitoring_model extends CI_Model
             FROM (SELECT DISTINCT employee_id FROM attendance_tracking WHERE attendance_id IS NULL AND DATE(recorded_at) = ?) as pending
             JOIN employees ON employees.id = pending.employee_id
             JOIN offices ON offices.id = employees.office_id
-            -- Backstop yang sama seperti Admin_tracking_model::getPendingTrackingList() —
-            -- kalau ternyata sudah ada attendance hari ini, jangan tampilkan di sini juga
-            -- (mencegah karyawan yang sama muncul dobel: sebagai pending & sebagai linked).
             WHERE NOT EXISTS (SELECT 1 FROM attendances a2 WHERE a2.employee_id = pending.employee_id AND a2.attendance_date = ?)
         ";
-        $params = array_fill(0, 8, $today);
+        $params = array_fill(0, 9, $today);
 
         if ($officeId) {
             $sql .= ' AND employees.office_id = ?';
