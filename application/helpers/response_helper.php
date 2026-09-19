@@ -1,6 +1,18 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
+// Perbaikan: seluruh proses tracking (waktu mulai, tiap titik, tanggal
+// tracking, waktu berhenti, pergantian hari) WAJIB memakai waktu server
+// GMT+7 (Asia/Jakarta), bukan timezone default PHP/hosting (yang sering
+// UTC) ataupun waktu perangkat/client. Helper ini di-load oleh MY_Controller
+// (API Android) dan MY_Admin_Controller (panel admin), jadi baris ini
+// otomatis berjalan di awal setiap request sebelum date()/now_datetime()/
+// today_date() dipakai di mana pun. Lihat juga MY_Controller /
+// MY_Admin_Controller yang menyamakan session timezone MySQL ke +07:00
+// supaya NOW()/CURDATE() di raw SQL (mis. Tracking_model::reassignPendingPoints)
+// konsisten dengan ini.
+date_default_timezone_set('Asia/Jakarta');
+
 if (!function_exists('now_datetime')) {
     function now_datetime(): string
     {

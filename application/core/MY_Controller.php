@@ -1,6 +1,21 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
+/**
+ * Base controller for every API endpoint.
+ *
+ * Provides:
+ *  - json_input(): parsed JSON request body (Android sends JSON, not form fields)
+ *  - json_response(): consistent JSON output + HTTP status
+ *  - require_auth(): validates the Authorization: Bearer <token> header
+ *    against auth_tokens, and returns the authenticated employee row.
+ *
+ * IMPORTANT (spec section 25): every controller that touches
+ * employee-specific or office-specific data MUST call require_auth()
+ * and then filter queries by the employee's own id / office_id — never
+ * trust an employee_id or office_id sent from the client body/query
+ * without cross-checking it against the authenticated employee.
+ */
 class MY_Controller extends CI_Controller
 {
     protected $authEmployee = null;
@@ -10,6 +25,13 @@ class MY_Controller extends CI_Controller
         parent::__construct();
         $this->load->database();
         $this->load->helper(array('response', 'distance'));
+
+        // Perbaikan: samakan timezone koneksi MySQL ke GMT+7 juga, supaya
+        // NOW()/CURDATE() di raw SQL (mis. Tracking_model::reassignPendingPoints
+        // yang memakai DATE(recorded_at) = CURDATE()) konsisten dengan
+        // date_default_timezone_set('Asia/Jakarta') di response_helper.php,
+        // tidak bergantung pada timezone default server MySQL.
+        $this->db->query("SET time_zone = '+07:00'");
 
         // Allow the Android app (and any future admin web app) to call
         // this API from a different origin during development.

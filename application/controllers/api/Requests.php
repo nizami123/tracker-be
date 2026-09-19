@@ -82,9 +82,10 @@ class Requests extends MY_Controller
      *     like a normal check-in (see Attendance_model->alreadyCheckedInToday()).
      *   - Already checked in today (normal check-in OR an earlier Absen
      *     Luar Kantor) but not checked out yet -> counts as that day's
-     *     check-out. The client is expected to stop tracking locally
-     *     once it picks up the updated attendance row (see
-     *     EmployeeTrackingCoordinator.adoptServerAttendance on Android).
+     *     check-out. Perbaikan: check-out (including this one) no longer
+     *     stops tracking on the client — EmployeeTrackingCoordinator.
+     *     adoptServerAttendance() on Android keeps tracking running under
+     *     the same attendance id until the day rolls over at 00:00 WIB.
      *   - Already checked in AND out today -> nothing left to touch;
      *     the request itself is still recorded/approved on its own.
      */
