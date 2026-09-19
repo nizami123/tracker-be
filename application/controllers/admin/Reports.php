@@ -12,6 +12,7 @@ class Reports extends MY_Admin_Controller
         $this->load->model('Admin_office_model');
         $this->load->model('Admin_attendance_model');
         $this->load->model('Admin_delivery_model');
+        $this->load->model('Holiday_model');
         $this->load->helper('export');
     }
 
@@ -35,6 +36,30 @@ class Reports extends MY_Admin_Controller
             'destination_office_id'   => $this->input->get('destination_office_id'),
             'type'                    => $this->input->get('type'),
             'status'                  => $this->input->get('status'),
+        );
+    }
+
+    private function calendarMonths(): array
+    {
+        return array(
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+            5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+            9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember',
+        );
+    }
+
+    private function calendarFiltersFromRequest(): array
+    {
+        $month = (int) ($this->input->get('month') ?: date('n'));
+        $year  = (int) ($this->input->get('year') ?: date('Y'));
+        if ($month < 1 || $month > 12) $month = (int) date('n');
+        if ($year < 2000 || $year > 2100) $year = (int) date('Y');
+
+        return array(
+            'month'       => $month,
+            'year'        => $year,
+            'office_id'   => $this->input->get('office_id'),
+            'employee_id' => $this->input->get('employee_id'),
         );
     }
 
@@ -89,6 +114,170 @@ class Reports extends MY_Admin_Controller
         $this->load->view('admin/reports/print_attendance', array(
             'filters' => $f, 'summary' => $summary, 'rows' => $rows,
         ));
+    }
+
+    // ==================== Kalender Absensi (Export PDF format kalender) ====================
+
+    public function attendance_calendar()
+    {
+        $f = $this->calendarFiltersFromRequest();
+
+        $this->render('admin/reports/attendance_calendar', array(
+            'activeMenu' => 'laporan_kalender_absensi',
+            'pageTitle'  => 'Kalender Absensi',
+            'offices'    => $this->scopedOffices(),
+            'employees'  => $this->Admin_attendance_model->getOptionsForFilter($this->officeScope()),
+            'filters'    => $f,
+            'months'     => $this->calendarMonths(),
+        ));
+    }
+
+    public function attendance_calendar_pdf()
+    {
+        $f = $this->calendarFiltersFromRequest();
+        $scope = $this->officeScope();
+
+        $officeId = $f['office_id'] ?: $scope;
+        // ADMIN_KANTOR tidak bisa diarahkan ke kantor lain lewat query string,
+        // sama seperti pola officeScope() di seluruh panel admin ini.
+        if ($scope && $officeId && (int) $officeId !== $scope) {
+            $officeId = $scope;
+        }
+        $employeeId = $f['employee_id'] ? (int) $f['employee_id'] : null;
+
+        $employees = $this->Admin_report_model->calendarEmployees($officeId ? (int) $officeId : null, $employeeId);
+        if ($scope) {
+            $employees = array_values(array_filter($employees, fn($e) => (int) $e['office_id'] === $scope));
+        }
+
+        $month = $f['month'];
+        $year = $f['year'];
+        $dateFrom = sprintf('%04d-%02d-01', $year, $month);
+        $daysInMonth = (int) date('t', strtotime($dateFrom));
+        $dateTo = sprintf('%04d-%02d-%02d', $year, $month, $daysInMonth);
+
+        $pages = array();
+        foreach ($employees as $emp) {
+            $attendanceMap = $this->Admin_report_model->calendarAttendanceMap((int) $emp['id'], $dateFrom, $dateTo);
+            $leaveMap = $this->Admin_report_model->calendarLeaveMap((int) $emp['id'], $dateFrom, $dateTo);
+            $outsideMap = $this->Admin_report_model->calendarOutsideOfficeMap((int) $emp['id'], $dateFrom, $dateTo);
+            $holidayMap = $this->Holiday_model->getMapInRange($dateFrom, $dateTo, (int) $emp['office_id']);
+
+            $pages[] = $this->buildEmployeeCalendarPage($emp, $year, $month, $daysInMonth, $attendanceMap, $leaveMap, $outsideMap, $holidayMap);
+        }
+
+        $months = $this->calendarMonths();
+
+        $filenameParts = array('rekap_absensi');
+        if ($employeeId && count($employees) === 1) {
+            $filenameParts[] = preg_replace('/[^a-z0-9]+/i', '_', strtolower($employees[0]['name']));
+        }
+        $filenameParts[] = strtolower($months[$month]);
+        $filenameParts[] = (string) $year;
+
+        $this->load->view('admin/reports/print_attendance_calendar', array(
+            'pages'      => $pages,
+            'monthLabel' => $months[$month],
+            'year'       => $year,
+            'filename'   => implode('_', $filenameParts),
+        ));
+    }
+
+    /**
+     * Susun data 1 halaman kalender untuk 1 pegawai: grid minggu (Minggu
+     * s/d Sabtu) + ringkasan (Hari Kerja / Hadir / Telat / Izin-Cuti /
+     * Dinas Luar / Alfa).
+     *
+     * Prioritas status per tanggal (paling kuat duluan): data absensi
+     * NYATA (check-in/out) selalu menang meski jatuh di hari
+     * Minggu/libur (mis. driver yang tetap masuk) > pengajuan Izin/Cuti
+     * yang disetujui > pengajuan Dinas Luar yang disetujui > hari libur
+     * (nasional/kantor, dari master Hari Libur) atau hari Minggu >
+     * "Alfa" HANYA untuk hari kerja yang sudah lewat tanpa data apa pun
+     * (bukan asumsi, murni turunan dari hitungan tanggal) > belum
+     * terjadi (hari ini/masa depan) dibiarkan kosong, tidak dihitung Alfa.
+     *
+     * "Hari Kerja" & "Alfa" adalah hasil hitung (bukan kolom di
+     * database) — sama seperti perkiraan "Tidak Hadir" di
+     * attendanceSummary(), ini adalah estimasi berbasis kalender
+     * (hari kerja = bukan Minggu & bukan hari libur), bukan jadwal
+     * shift per pegawai karena sistem belum punya tabel itu.
+     */
+    private function buildEmployeeCalendarPage(array $emp, int $year, int $month, int $daysInMonth, array $attendanceMap, array $leaveMap, array $outsideMap, array $holidayMap): array
+    {
+        $today = today_date();
+        $cellsByDate = array();
+        $hariKerja = 0; $hadir = 0; $telat = 0; $izinCuti = 0; $dinasLuar = 0; $alfa = 0;
+
+        for ($d = 1; $d <= $daysInMonth; $d++) {
+            $date = sprintf('%04d-%02d-%02d', $year, $month, $d);
+            $dow = (int) date('w', strtotime($date)); // 0=Minggu .. 6=Sabtu
+            $isSunday = ($dow === 0);
+            $isHoliday = isset($holidayMap[$date]);
+            if (!$isSunday && !$isHoliday) $hariKerja++;
+
+            $cell = array(
+                'date'         => $d,
+                'dow'          => $dow,
+                'is_sunday'    => $isSunday,
+                'is_holiday'   => $isHoliday,
+                'holiday_name' => $holidayMap[$date] ?? null,
+                'type'         => 'none',
+                'time_label'   => null,
+            );
+
+            if (isset($attendanceMap[$date])) {
+                $a = $attendanceMap[$date];
+                $in = $a['check_in_time'] ? substr($a['check_in_time'], 11, 5) : null;
+                $out = $a['check_out_time'] ? substr($a['check_out_time'], 11, 5) : null;
+                if ($in && $out) $cell['time_label'] = $in . '-' . $out;
+                elseif ($in) $cell['time_label'] = $in . '- -';
+                elseif ($out) $cell['time_label'] = '- -' . $out;
+                else $cell['time_label'] = '-';
+
+                $cell['type'] = ($a['status'] === 'LATE') ? 'telat' : 'hadir';
+                if ($cell['type'] === 'telat') $telat++; else $hadir++;
+            } elseif (isset($leaveMap[$date])) {
+                $cell['type'] = 'izin';
+                $izinCuti++;
+            } elseif (isset($outsideMap[$date])) {
+                $cell['type'] = 'dinas_luar';
+                $dinasLuar++;
+            } elseif ($isHoliday || $isSunday) {
+                $cell['type'] = 'libur';
+            } elseif ($date < $today) {
+                $cell['type'] = 'alfa';
+                $alfa++;
+            }
+
+            $cellsByDate[$date] = $cell;
+        }
+
+        $weeks = array();
+        $week = array_fill(0, 7, null);
+        foreach ($cellsByDate as $cell) {
+            $week[$cell['dow']] = $cell;
+            if ($cell['dow'] === 6) {
+                $weeks[] = $week;
+                $week = array_fill(0, 7, null);
+            }
+        }
+        if (count(array_filter($week, fn($c) => $c !== null)) > 0) {
+            $weeks[] = $week;
+        }
+
+        return array(
+            'employee' => $emp,
+            'weeks'    => $weeks,
+            'summary'  => array(
+                'hari_kerja' => $hariKerja,
+                'hadir'      => $hadir,
+                'telat'      => $telat,
+                'izin_cuti'  => $izinCuti,
+                'dinas_luar' => $dinasLuar,
+                'alfa'       => $alfa,
+            ),
+        );
     }
 
     // ==================== Laporan Pengajuan ====================

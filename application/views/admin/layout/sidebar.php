@@ -25,6 +25,7 @@ $active = $activeMenu ?? '';
             <?php at_nav_link('master_karyawan', $active, 'admin/employees', 'bi-people', 'Karyawan'); ?>
             <?php at_nav_link('master_kendaraan', $active, 'admin/vehicles', 'bi-truck', 'Kendaraan'); ?>
             <?php at_nav_link('master_admin', $active, 'admin/admin_users', 'bi-shield-lock', 'User Admin'); ?>
+            <?php at_nav_link('master_libur', $active, 'admin/holidays', 'bi-calendar-x', 'Hari Libur'); ?>
 
             <div class="nav-section-title">Absensi</div>
             <?php at_nav_link('history_absensi', $active, 'admin/attendances', 'bi-calendar-check', 'History Absensi'); ?>
@@ -40,6 +41,7 @@ $active = $activeMenu ?? '';
 
             <div class="nav-section-title">Laporan</div>
             <?php at_nav_link('laporan_absensi', $active, 'admin/reports/attendance', 'bi-bar-chart', 'Laporan Absensi'); ?>
+            <?php at_nav_link('laporan_kalender_absensi', $active, 'admin/reports/attendance_calendar', 'bi-calendar3-week', 'Kalender Absensi'); ?>
             <?php at_nav_link('laporan_pengajuan', $active, 'admin/reports/requests', 'bi-bar-chart', 'Laporan Pengajuan'); ?>
             <?php at_nav_link('laporan_pengiriman', $active, 'admin/reports/deliveries', 'bi-bar-chart', 'Laporan Pengiriman'); ?>
 

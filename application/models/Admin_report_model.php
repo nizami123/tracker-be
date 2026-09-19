@@ -67,6 +67,88 @@ class Admin_report_model extends CI_Model
         return $this->db->get()->result_array();
     }
 
+    // ---------------- Kalender Absensi (Export PDF format kalender) ----------------
+
+    /**
+     * Daftar pegawai untuk digenerate 1 halaman kalender per pegawai.
+     * Jika $employeeId diisi, hanya kembalikan pegawai tersebut
+     * (terlepas dari status aktif/nonaktif — memilih 1 pegawai secara
+     * eksplisit selalu ditampilkan). Kalau tidak, hanya pegawai AKTIF,
+     * opsional difilter per kantor ($officeId null = semua kantor).
+     */
+    public function calendarEmployees(?int $officeId, ?int $employeeId): array
+    {
+        $this->db->select('employees.id, employees.name, employees.employee_code, employees.nip, employees.position, employees.office_id, offices.name as office_name')
+            ->from('employees')
+            ->join('offices', 'offices.id = employees.office_id')
+            ->where_in('employees.role', array('EMPLOYEE', 'DRIVER'))
+            ->order_by('offices.name', 'ASC')
+            ->order_by('employees.name', 'ASC');
+
+        if ($employeeId) {
+            $this->db->where('employees.id', $employeeId);
+        } else {
+            $this->db->where('employees.status', 'ACTIVE');
+            if ($officeId) $this->db->where('employees.office_id', $officeId);
+        }
+
+        return $this->db->get()->result_array();
+    }
+
+    /** attendance_date (Y-m-d) => baris attendances, untuk 1 pegawai & 1 rentang tanggal. */
+    public function calendarAttendanceMap(int $employeeId, string $dateFrom, string $dateTo): array
+    {
+        $rows = $this->db->select('attendance_date, check_in_time, check_out_time, status')
+            ->where('employee_id', $employeeId)
+            ->where('attendance_date >=', $dateFrom)
+            ->where('attendance_date <=', $dateTo)
+            ->get('attendances')->result_array();
+
+        $map = array();
+        foreach ($rows as $r) $map[$r['attendance_date']] = $r;
+        return $map;
+    }
+
+    /**
+     * tanggal (Y-m-d) => true untuk setiap tanggal yang tercakup oleh
+     * pengajuan LEAVE (Izin/Cuti — schema tidak membedakan keduanya,
+     * lihat catatan di atas) yang sudah APPROVED dan beririsan dengan
+     * rentang tanggal kalender.
+     */
+    public function calendarLeaveMap(int $employeeId, string $dateFrom, string $dateTo): array
+    {
+        $rows = $this->db->select('start_date, end_date')
+            ->where('employee_id', $employeeId)
+            ->where('type', 'LEAVE')->where('status', 'APPROVED')
+            ->where('start_date <=', $dateTo)->where('end_date >=', $dateFrom)
+            ->get('attendance_requests')->result_array();
+
+        $map = array();
+        foreach ($rows as $r) {
+            $cursor = max($r['start_date'], $dateFrom);
+            $end = min($r['end_date'], $dateTo);
+            while ($cursor <= $end) {
+                $map[$cursor] = true;
+                $cursor = date('Y-m-d', strtotime($cursor . ' +1 day'));
+            }
+        }
+        return $map;
+    }
+
+    /** tanggal (Y-m-d) => true untuk pengajuan OUTSIDE_OFFICE (Dinas Luar) yang APPROVED pada tanggal tersebut. */
+    public function calendarOutsideOfficeMap(int $employeeId, string $dateFrom, string $dateTo): array
+    {
+        $rows = $this->db->select('date')
+            ->where('employee_id', $employeeId)
+            ->where('type', 'OUTSIDE_OFFICE')->where('status', 'APPROVED')
+            ->where('date >=', $dateFrom)->where('date <=', $dateTo)
+            ->get('attendance_requests')->result_array();
+
+        $map = array();
+        foreach ($rows as $r) $map[$r['date']] = true;
+        return $map;
+    }
+
     // ---------------- Laporan Pengajuan ----------------
 
     public function requestRows(array $filters, ?int $officeId): array
