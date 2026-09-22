@@ -9,8 +9,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 // otomatis berjalan di awal setiap request sebelum date()/now_datetime()/
 // today_date() dipakai di mana pun. Lihat juga MY_Controller /
 // MY_Admin_Controller yang menyamakan session timezone MySQL ke +07:00
-// supaya NOW()/CURDATE() di raw SQL (mis. Tracking_model::reassignPendingPoints)
-// konsisten dengan ini.
+// supaya NOW()/CURDATE() di raw SQL konsisten dengan ini.
 date_default_timezone_set('Asia/Jakarta');
 
 if (!function_exists('now_datetime')) {
@@ -24,6 +23,35 @@ if (!function_exists('today_date')) {
     function today_date(): string
     {
         return date('Y-m-d');
+    }
+}
+
+if (!function_exists('valid_date_string')) {
+    /** True hanya untuk tanggal kalender yang valid berformat persis Y-m-d (mis. 2026-09-21). */
+    function valid_date_string($value): bool
+    {
+        if (!is_string($value) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) return false;
+        $d = DateTime::createFromFormat('Y-m-d', $value);
+        return $d !== false && $d->format('Y-m-d') === $value;
+    }
+}
+
+if (!function_exists('day_range')) {
+    /**
+     * Batas satu hari untuk query tracking: [awal, akhir) — awal = 00:00:00
+     * tanggal itu, akhir = 00:00:00 hari berikutnya.
+     *
+     * Tracking dicari per employee_id + tanggal. Sengaja dipakai sebagai
+     * rentang recorded_at (recorded_at >= awal AND recorded_at < akhir),
+     * BUKAN DATE(recorded_at) = tanggal, supaya index
+     * unique_tracking (employee_id, recorded_at) tetap bisa dipakai.
+     */
+    function day_range(string $date): array
+    {
+        return array(
+            $date . ' 00:00:00',
+            date('Y-m-d', strtotime($date . ' +1 day')) . ' 00:00:00',
+        );
     }
 }
 

@@ -27,8 +27,7 @@ class MY_Controller extends CI_Controller
         $this->load->helper(array('response', 'distance'));
 
         // Perbaikan: samakan timezone koneksi MySQL ke GMT+7 juga, supaya
-        // NOW()/CURDATE() di raw SQL (mis. Tracking_model::reassignPendingPoints
-        // yang memakai DATE(recorded_at) = CURDATE()) konsisten dengan
+        // NOW()/CURDATE() di raw SQL konsisten dengan
         // date_default_timezone_set('Asia/Jakarta') di response_helper.php,
         // tidak bergantung pada timezone default server MySQL.
         $this->db->query("SET time_zone = '+07:00'");
