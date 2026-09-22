@@ -9,6 +9,8 @@ class Attendance extends MY_Controller
      * POST /api/attendance/check-in
      *
      * This is the authoritative validation described in spec section 7.
+     * Absensi hanya mencatat ke tabel attendances — tidak menyentuh
+     * tracking (attendance_tracking) sama sekali.
      * The employee_id in the request body is NEVER trusted directly —
      * it must match the authenticated token's employee. office_id and
      * its coordinates/radius are always looked up server-side from that
@@ -76,13 +78,6 @@ class Attendance extends MY_Controller
             'status'              => 'PRESENT',
             'created_at'          => now_datetime(),
         ));
-
-        // Claim this morning's pre-check-in location points (recorded
-        // with attendance_id NULL — see api/Tracking::sync()) now that a
-        // real attendance record exists, so they show up in the
-        // tracking history for this attendance instead of being orphaned.
-        $this->load->model('Tracking_model');
-        $this->Tracking_model->reassignPendingPoints((int) $employee['id'], (int) $attendanceId);
 
         $attendance = $this->Attendance_model->getById($attendanceId);
 

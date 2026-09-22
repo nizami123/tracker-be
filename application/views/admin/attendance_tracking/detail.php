@@ -1,20 +1,19 @@
 <div class="d-flex align-items-center gap-2 mb-3">
-    <a href="<?= site_url('admin/attendances') ?>" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
+    <a href="<?= site_url('admin/attendance_tracking?date=' . urlencode($tracking['tracking_date'])) ?>" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
     <div>
-        <h4 class="fw-bold mb-0">Tracking Absensi</h4>
-        <p class="text-gray small mb-0"><?= html_escape($attendance['employee_name']) ?></p>
+        <h4 class="fw-bold mb-0">Tracking Karyawan</h4>
+        <p class="text-gray small mb-0"><?= html_escape($tracking['employee_name']) ?> — <?= html_escape($tracking['tracking_date']) ?></p>
     </div>
     <span id="liveBadge" class="badge-at badge-at-gray ms-auto"></span>
 </div>
 
 <div class="row g-3 mb-3">
-    <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Karyawan</div><div class="fw-bold"><?= html_escape($attendance['employee_name']) ?></div></div></div>
-    <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">NIP</div><div class="fw-bold"><?= html_escape($attendance['nip'] ?: '-') ?></div></div></div>
-    <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Kantor</div><div class="fw-bold"><?= html_escape($attendance['office_name']) ?></div></div></div>
-    <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Tanggal</div><div class="fw-bold"><?= html_escape($attendance['attendance_date']) ?></div></div></div>
-    <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Jam Masuk</div><div class="fw-bold"><?= $attendance['check_in_time'] ? substr($attendance['check_in_time'], 11, 8) : '-' ?></div></div></div>
-    <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Jam Pulang</div><div class="fw-bold"><?= $attendance['check_out_time'] ? substr($attendance['check_out_time'], 11, 8) : (!empty($attendance['is_pending']) ? 'Belum absen masuk' : 'Masih bekerja') ?></div></div></div>
-    <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Status</div><div class="fw-bold"><?= html_escape($attendance['status']) ?></div></div></div>
+    <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Karyawan</div><div class="fw-bold"><?= html_escape($tracking['employee_name']) ?></div></div></div>
+    <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">NIP</div><div class="fw-bold"><?= html_escape($tracking['nip'] ?: '-') ?></div></div></div>
+    <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Kantor</div><div class="fw-bold"><?= html_escape($tracking['office_name']) ?></div></div></div>
+    <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Tanggal</div><div class="fw-bold"><?= html_escape($tracking['tracking_date']) ?></div></div></div>
+    <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Mulai Tracking</div><div class="fw-bold" id="firstPointTime">-</div></div></div>
+    <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Update Terakhir</div><div class="fw-bold" id="lastPointTime">-</div></div></div>
     <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Total Titik</div><div class="fw-bold" id="totalPoints">-</div></div></div>
 </div>
 
@@ -33,33 +32,27 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    // Revisi: a pending (not-yet-checked-in) session has no real
-    // attendance row, so it's addressed by employee_id against the
-    // _pending AJAX endpoints instead of attendance_id against the
-    // normal ones — everything else on this page (map, polling,
-    // rendering) is identical either way.
-    const isPending = <?= !empty($attendance['is_pending']) ? 'true' : 'false' ?>;
-    const trackingKey = <?= (int) ($attendance['is_pending'] ? $attendance['employee_id'] : $attendance['id']) ?>;
-    const pointsUrl = ADMIN_BASE_URL + 'admin/attendance_tracking/' + (isPending ? 'points_data_pending/' : 'points_data/') + trackingKey;
-    const latestUrl = ADMIN_BASE_URL + 'admin/attendance_tracking/' + (isPending ? 'latest_position_pending/' : 'latest_position/') + trackingKey;
-    const isCheckedOut = <?= $attendance['check_out_time'] ? 'true' : 'false' ?>;
-    const officeLat = <?= (float) $attendance['office_latitude'] ?>;
-    const officeLng = <?= (float) $attendance['office_longitude'] ?>;
-    const officeRadius = <?= (int) $attendance['check_in_radius'] ?>;
+    // Tracking berbasis employee_id + tanggal saja — tidak ada attendance_id
+    // dan tidak ada mode "pending". Status aktif/selesai hanya soal
+    // apakah tanggalnya hari ini, bukan soal absen masuk/pulang.
+    const employeeId = <?= (int) $tracking['employee_id'] ?>;
+    const trackingDate = <?= json_encode($tracking['tracking_date']) ?>;
+    const isToday = <?= $isToday ? 'true' : 'false' ?>;
+    const baseUrl = ADMIN_BASE_URL + 'admin/attendance_tracking/';
+    const pointsUrl = baseUrl + 'points_data/' + employeeId + '/' + trackingDate;
+    const latestUrl = baseUrl + 'latest_position/' + employeeId + '/' + trackingDate;
+    const officeLat = <?= (float) $tracking['office_latitude'] ?>;
+    const officeLng = <?= (float) $tracking['office_longitude'] ?>;
+    const officeRadius = <?= (int) $tracking['check_in_radius'] ?>;
 
     const liveBadge = document.getElementById('liveBadge');
     function setBadge(active) {
-        if (isPending) {
-            liveBadge.innerHTML = '<i class="bi bi-clock-history"></i> BELUM ABSEN MASUK — TRACKING AKTIF';
-            liveBadge.className = 'badge-at ms-auto badge-at-orange';
-            return;
-        }
         liveBadge.innerHTML = active
             ? '<i class="bi bi-circle-fill" style="font-size:8px;"></i> TRACKING AKTIF'
-            : '<i class="bi bi-check-circle-fill"></i> TRACKING SELESAI';
+            : '<i class="bi bi-check-circle-fill"></i> RIWAYAT TRACKING';
         liveBadge.className = 'badge-at ms-auto ' + (active ? 'badge-at-green' : 'badge-at-gray');
     }
-    setBadge(!isCheckedOut);
+    setBadge(isToday);
 
     const map = L.map('trackingMap');
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -103,6 +96,8 @@ document.addEventListener('DOMContentLoaded', function () {
         // Titik" tetap kosong ("-") padahal datanya di database banyak.
         document.getElementById('totalPoints').textContent = points.length;
         lastPointTime = points[points.length - 1].recorded_at;
+        document.getElementById('firstPointTime').textContent = points[0].recorded_at.substring(11, 19);
+        document.getElementById('lastPointTime').textContent = lastPointTime.substring(11, 19);
 
         if (polyline) map.removeLayer(polyline);
         markers.forEach(m => map.removeLayer(m));
@@ -169,7 +164,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Realtime polling: only fetch the single latest point every 30s,
     // and only re-render if it's actually new — never re-fetch the
     // whole polyline on a timer.
-    if (!isCheckedOut) {
+    if (isToday) {
         var pollInterval = setInterval(function () {
             fetch(latestUrl)
                 .then(r => r.json()).then(res => {

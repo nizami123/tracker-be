@@ -123,7 +123,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 data: null, orderable: false, className: 'text-end',
                 render: function (row) {
                     if (row.tracking_count > 0) {
-                        return `<a href="${ADMIN_BASE_URL}admin/attendance_tracking/detail/${row.id}" class="btn btn-sm btn-outline-at-primary"><i class="bi bi-geo-alt me-1"></i>Lihat Tracking</a>`;
+                        return `<a href="${ADMIN_BASE_URL}admin/attendance_tracking/detail/${row.employee_id}/${row.attendance_date}" class="btn btn-sm btn-outline-at-primary"><i class="bi bi-geo-alt me-1"></i>Lihat Tracking</a>`;
                     }
                     return `<span class="text-gray small">Tidak ada tracking</span>`;
                 }

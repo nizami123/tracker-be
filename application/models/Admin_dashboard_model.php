@@ -41,13 +41,25 @@ class Admin_dashboard_model extends CI_Model
         return (int) $q->count_all_results('attendances');
     }
 
+    /**
+     * Jumlah karyawan yang punya titik tracking hari ini (attendance_tracking,
+     * per employee_id + tanggal) — sama dengan daftar di halaman Tracking
+     * Aktif. Tidak lagi dihitung dari status absen masuk/pulang.
+     */
     public function sedangTracking(?int $officeId): int
     {
-        $q = $this->db->where('attendance_date', today_date())
-            ->where('check_in_time IS NOT NULL', null, false)
-            ->where('check_out_time IS NULL', null, false);
-        if ($officeId) $q->where('office_id', $officeId);
-        return (int) $q->count_all_results('attendances');
+        list($start, $end) = day_range(today_date());
+
+        $this->db->select('COUNT(DISTINCT attendance_tracking.employee_id) AS total', false)
+            ->from('attendance_tracking')
+            ->where('attendance_tracking.recorded_at >=', $start)
+            ->where('attendance_tracking.recorded_at <', $end);
+        if ($officeId) {
+            $this->db->join('employees', 'employees.id = attendance_tracking.employee_id')
+                ->where('employees.office_id', $officeId);
+        }
+        $row = $this->db->get()->row_array();
+        return (int) ($row['total'] ?? 0);
     }
 
     public function pengajuanMenunggu(?int $officeId): int

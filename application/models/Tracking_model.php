@@ -1,6 +1,13 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
+/**
+ * Tracking karyawan = tabel attendance_tracking, berfokus ke
+ * employee_id + tanggal (DATE(recorded_at)). Tidak ada relasi ke
+ * tabel attendances sama sekali: titik tracking tetap masuk walau
+ * karyawan belum/tidak absen, dan absen masuk/pulang tidak mengubah
+ * satu baris pun di tabel ini.
+ */
 class Tracking_model extends CI_Model
 {
     /**
@@ -14,10 +21,6 @@ class Tracking_model extends CI_Model
      * only reports back the localIds returned here as synced, so the
      * Android app keeps retrying anything that isn't in this list instead
      * of wrongly deleting/marking-synced a point that was never saved.
-     * attendance_id may be NULL (points recorded before check-in exists
-     * yet, or whose attendance_id no longer belongs to this employee —
-     * see Tracking::sync()) — still inserted, tracking never depends on
-     * having a valid attendance_id.
      */
     public function insertBatch(array $rows): array
     {
@@ -28,11 +31,11 @@ class Tracking_model extends CI_Model
             try {
                 $success = $this->db->query(
                     "INSERT IGNORE INTO attendance_tracking
-                        (attendance_id, employee_id, office_id, latitude, longitude,
+                        (employee_id, office_id, latitude, longitude,
                          accuracy, speed, bearing, battery_level, recorded_at, server_received_at, created_at)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     array(
-                        $row['attendance_id'], $row['employee_id'], $row['office_id'],
+                        $row['employee_id'], $row['office_id'],
                         $row['latitude'], $row['longitude'], $row['accuracy'],
                         $row['speed'], $row['bearing'], $row['battery_level'],
                         $row['recorded_at'], now_datetime(), now_datetime(),
@@ -41,9 +44,10 @@ class Tracking_model extends CI_Model
 
                 if ($success) {
                     // INSERT IGNORE: $success is true even when the row
-                    // was a duplicate of one already stored (unique_tracking)
-                    // — that still counts as "safely in the database", so
-                    // it's correct to report it as synced either way.
+                    // was a duplicate of one already stored (unique_tracking
+                    // on employee_id + recorded_at) — that still counts as
+                    // "safely in the database", so it's correct to report
+                    // it as synced either way.
                     $syncedLocalIds[] = $row['localId'];
                 } else {
                     log_message('error', 'Tracking insert returned false: employee_id=' . $row['employee_id'] . ' recorded_at=' . $row['recorded_at']);
@@ -56,40 +60,16 @@ class Tracking_model extends CI_Model
         return $syncedLocalIds;
     }
 
-    /**
-     * Called right after a successful check-in (spec parity with the
-     * Android app's TrackingRepository.reassignPendingPoints): claims
-     * every pending point (attendance_id IS NULL) recorded TODAY for
-     * this employee and attaches it to the attendance record that was
-     * just created, so this morning's pre-check-in location history
-     * shows up under the employee's attendance as expected.
-     */
-    public function reassignPendingPoints(int $employeeId, int $attendanceId): void
+    /** Semua titik tracking milik satu karyawan pada satu tanggal (Y-m-d), urut waktu. */
+    public function getForEmployeeDate(int $employeeId, string $date): array
     {
-        $this->db->query(
-            "UPDATE attendance_tracking
-                SET attendance_id = ?
-              WHERE employee_id = ?
-                AND attendance_id IS NULL
-                AND DATE(recorded_at) = CURDATE()",
-            array($attendanceId, $employeeId)
-        );
-    }
+        list($start, $end) = day_range($date);
 
-    public function getForAttendance(int $attendanceId): array
-    {
-        return $this->db->where('attendance_id', $attendanceId)
+        return $this->db->where('employee_id', $employeeId)
+            ->where('recorded_at >=', $start)
+            ->where('recorded_at <', $end)
             ->order_by('recorded_at', 'ASC')
             ->get('attendance_tracking')
             ->result_array();
-    }
-
-    public function belongsToEmployee(int $attendanceId, int $employeeId): bool
-    {
-        $row = $this->db->where('id', $attendanceId)
-            ->where('employee_id', $employeeId)
-            ->get('attendances')
-            ->row_array();
-        return (bool) $row;
     }
 }

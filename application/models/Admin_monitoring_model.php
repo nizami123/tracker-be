@@ -17,115 +17,55 @@ class Admin_monitoring_model extends CI_Model
     /**
      * "Karyawan Tracking" pada halaman Tracking Aktif.
      *
-     * Revisi: sumber datanya adalah tabel attendance_tracking (tabel
-     * yang benar-benar menyimpan titik-titik tracking), BUKAN status
-     * check_in_time/check_out_time di attendances. Sebelumnya karyawan
-     * hanya dianggap "aktif" kalau sudah absen masuk dan belum absen
-     * pulang — jadi begitu absen pulang (atau kalau titik GPS masuk
-     * sebelum absen masuk / pending), dia langsung hilang dari daftar
-     * walau titik tracking hari itu masih ada / terus bertambah.
-     * Sekarang: siapa pun yang PUNYA baris attendance_tracking dengan
-     * recorded_at = hari ini akan muncul di sini, jam masuk dan jam
-     * pulang tidak dipakai sebagai filter sama sekali. Ini sejalan
-     * dengan Admin_tracking_model::getTodayTrackingList() yang dipakai
-     * halaman "Tracking Karyawan" — dua fungsi getX/getPendingX di
-     * bawah ini sengaja meniru pola yang sama (linked vs pending,
-     * digabung jadi satu daftar dengan flag is_pending) supaya kedua
-     * halaman konsisten menampilkan hal yang sama.
-     */
-    public function getActiveEmployees(?int $officeId): array
-    {
-        $linked = $this->getLinkedEmployeeTracking($officeId);
-        $pending = $this->getPendingEmployeeTracking($officeId);
-        return array_merge($linked, $pending);
-    }
-
-    /**
-     * Karyawan yang sudah pernah absen masuk hari ini yang punya titik
-     * tracking hari ini. Dikunci ke employee_id + tanggal, BUKAN
-     * attendance_id: sebuah titik bisa saja masih attendance_id NULL
-     * meskipun karyawannya sudah absen masuk — misalnya titik itu
-     * direkam offline sebelum absen lalu baru sampai ke server SETELAH
-     * absen masuk (dan reassignPendingPoints() sudah keburu jalan
-     * duluan). Kalau masih dikunci ke attendance_id, karyawan begini
-     * akan hilang total dari halaman ini: EXISTS di bawah gagal karena
-     * baris trackingnya belum attendance_id, sementara guard NOT EXISTS
-     * di getPendingEmployeeTracking() juga mengecualikan dia karena dia
-     * sudah punya attendance hari ini.
-     */
-    private function getLinkedEmployeeTracking(?int $officeId): array
-    {
-        $today = $this->db->escape(today_date());
-
-        $this->db->select("
-                attendances.id, attendances.employee_id, 0 as is_pending, 'EMPLOYEE' as tracker_type,
-                employees.name as person_name, employees.employee_code as person_code,
-                offices.name as office_name,
-                (SELECT MIN(recorded_at) FROM attendance_tracking WHERE attendance_tracking.employee_id = attendances.employee_id AND DATE(recorded_at) = {$today}) as started_at,
-                (SELECT COUNT(*) FROM attendance_tracking WHERE attendance_tracking.employee_id = attendances.employee_id AND DATE(recorded_at) = {$today}) as point_count,
-                (SELECT latitude FROM attendance_tracking WHERE attendance_tracking.employee_id = attendances.employee_id AND DATE(recorded_at) = {$today} ORDER BY recorded_at DESC LIMIT 1) as last_lat,
-                (SELECT longitude FROM attendance_tracking WHERE attendance_tracking.employee_id = attendances.employee_id AND DATE(recorded_at) = {$today} ORDER BY recorded_at DESC LIMIT 1) as last_lng,
-                (SELECT accuracy FROM attendance_tracking WHERE attendance_tracking.employee_id = attendances.employee_id AND DATE(recorded_at) = {$today} ORDER BY recorded_at DESC LIMIT 1) as last_accuracy,
-                (SELECT speed FROM attendance_tracking WHERE attendance_tracking.employee_id = attendances.employee_id AND DATE(recorded_at) = {$today} ORDER BY recorded_at DESC LIMIT 1) as last_speed,
-                (SELECT recorded_at FROM attendance_tracking WHERE attendance_tracking.employee_id = attendances.employee_id AND DATE(recorded_at) = {$today} ORDER BY recorded_at DESC LIMIT 1) as last_update
-            ", false)
-            ->from('attendances')
-            ->join('employees', 'employees.id = attendances.employee_id')
-            ->join('offices', 'offices.id = attendances.office_id')
-            ->where(
-                "EXISTS (SELECT 1 FROM attendance_tracking WHERE attendance_tracking.employee_id = attendances.employee_id AND DATE(attendance_tracking.recorded_at) = {$today})",
-                null,
-                false
-            );
-        if ($officeId) $this->db->where('attendances.office_id', $officeId);
-        return $this->db->get()->result_array();
-    }
-
-    /**
-     * Karyawan yang titik trackingnya sudah masuk hari ini tapi belum
-     * absen masuk sama sekali (attendance_id NULL). Pakai
-     * $this->db->query() mentah (bukan query builder) karena butuh
+     * Sumber datanya HANYA tabel attendance_tracking, dikunci ke
+     * employee_id + tanggal hari ini: siapa pun yang punya titik dengan
+     * recorded_at hari ini (GMT+7) tampil di sini — sudah absen masuk,
+     * sudah absen pulang, atau belum absen sama sekali. Tabel attendances
+     * tidak dipakai sama sekali, jadi absensi tidak memengaruhi siapa
+     * yang tampil. Satu baris per karyawan; posisi terakhirnya diambil
+     * dari titik terbaru hari ini (join ke unique key employee_id +
+     * recorded_at, jadi pasti tepat satu baris).
+     *
+     * Pakai $this->db->query() mentah (bukan query builder) karena butuh
      * subquery di klausa FROM — kalau lewat ->from() query builder CI
      * akan mencoba "protect_identifiers" string subquery itu dan bisa
      * merusak SQL-nya.
      */
-    private function getPendingEmployeeTracking(?int $officeId): array
+    public function getActiveEmployees(?int $officeId): array
     {
-        $today = today_date();
+        list($start, $end) = day_range(today_date());
 
         $sql = "
             SELECT
-                0 as id, pending.employee_id, 1 as is_pending, 'EMPLOYEE' as tracker_type,
-                employees.name as person_name, employees.employee_code as person_code,
-                offices.name as office_name,
-                (SELECT MIN(recorded_at) FROM attendance_tracking WHERE attendance_tracking.employee_id = pending.employee_id AND attendance_tracking.attendance_id IS NULL AND DATE(recorded_at) = ?) as started_at,
-                (SELECT COUNT(*) FROM attendance_tracking WHERE attendance_tracking.employee_id = pending.employee_id AND attendance_tracking.attendance_id IS NULL AND DATE(recorded_at) = ?) as point_count,
-                (SELECT latitude FROM attendance_tracking WHERE attendance_tracking.employee_id = pending.employee_id AND attendance_tracking.attendance_id IS NULL AND DATE(recorded_at) = ? ORDER BY recorded_at DESC LIMIT 1) as last_lat,
-                (SELECT longitude FROM attendance_tracking WHERE attendance_tracking.employee_id = pending.employee_id AND attendance_tracking.attendance_id IS NULL AND DATE(recorded_at) = ? ORDER BY recorded_at DESC LIMIT 1) as last_lng,
-                (SELECT accuracy FROM attendance_tracking WHERE attendance_tracking.employee_id = pending.employee_id AND attendance_tracking.attendance_id IS NULL AND DATE(recorded_at) = ? ORDER BY recorded_at DESC LIMIT 1) as last_accuracy,
-                (SELECT speed FROM attendance_tracking WHERE attendance_tracking.employee_id = pending.employee_id AND attendance_tracking.attendance_id IS NULL AND DATE(recorded_at) = ? ORDER BY recorded_at DESC LIMIT 1) as last_speed,
-                (SELECT recorded_at FROM attendance_tracking WHERE attendance_tracking.employee_id = pending.employee_id AND attendance_tracking.attendance_id IS NULL AND DATE(recorded_at) = ? ORDER BY recorded_at DESC LIMIT 1) as last_update
-            FROM (SELECT DISTINCT employee_id FROM attendance_tracking WHERE attendance_id IS NULL AND DATE(recorded_at) = ?) as pending
-            JOIN employees ON employees.id = pending.employee_id
-            JOIN offices ON offices.id = employees.office_id
-            -- Backstop yang sama seperti Admin_tracking_model::getPendingTrackingList() —
-            -- kalau ternyata sudah ada attendance hari ini, jangan tampilkan di sini juga
-            -- (mencegah karyawan yang sama muncul dobel: sebagai pending & sebagai linked).
-            WHERE NOT EXISTS (SELECT 1 FROM attendances a2 WHERE a2.employee_id = pending.employee_id AND a2.attendance_date = ?)
-        ";
-        // 9 tanda "?" di query di atas: 7 di subquery SELECT (started_at,
-        // point_count, last_lat, last_lng, last_accuracy, last_speed,
-        // last_update) + 1 di subquery FROM (pending) + 1 di WHERE NOT
-        // EXISTS. Jumlah ini HARUS sama persis dengan jumlah elemen di
-        // $params, kalau tidak CodeIgniter diam-diam batal melakukan
-        // binding dan mengirim SQL mentah dengan tanda "?" apa adanya ke
-        // MariaDB (persis error 1064 yang sebelumnya muncul).
-        $params = array_fill(0, 9, $today);
+                employees.id AS employee_id, 'EMPLOYEE' AS tracker_type,
+                employees.name AS person_name, employees.employee_code AS person_code,
+                offices.name AS office_name,
+                today.started_at, today.point_count,
+                last_point.latitude AS last_lat, last_point.longitude AS last_lng,
+                last_point.accuracy AS last_accuracy, last_point.speed AS last_speed,
+                last_point.recorded_at AS last_update
+            FROM (
+                SELECT employee_id,
+                       MIN(recorded_at) AS started_at,
+                       MAX(recorded_at) AS last_at,
+                       COUNT(*) AS point_count
+                  FROM attendance_tracking
+                 WHERE recorded_at >= ? AND recorded_at < ?
+                 GROUP BY employee_id
+            ) AS today
+            JOIN attendance_tracking AS last_point
+              ON last_point.employee_id = today.employee_id
+             AND last_point.recorded_at = today.last_at
+            JOIN employees ON employees.id = today.employee_id
+            JOIN offices ON offices.id = employees.office_id";
+        $params = array($start, $end);
 
         if ($officeId) {
-            $sql .= ' AND employees.office_id = ?';
+            $sql .= " WHERE employees.office_id = ?";
             $params[] = $officeId;
         }
+
+        $sql .= " ORDER BY today.last_at DESC";
 
         return $this->db->query($sql, $params)->result_array();
     }
