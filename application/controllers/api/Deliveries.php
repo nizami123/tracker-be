@@ -63,12 +63,6 @@ class Deliveries extends MY_Controller
             ), 422);
         }
 
-        // Tujuan pengiriman: pilih salah satu kantor terdaftar
-        // (destination_office_id), ATAU tentukan tujuan bebas (nama +
-        // lokasi GPS) sebagai pemberhentian terakhir — dua-duanya
-        // disimpan ke kolom destination_* yang sama (disalin dari data
-        // kantor kalau dari daftar), supaya validasi kedatangan & respons
-        // API tidak perlu tahu bedanya lagi setelah ini.
         $destinationOfficeId = !empty($body['destination_office_id']) ? (int) $body['destination_office_id'] : null;
         $destinationName = trim($body['destination_name'] ?? '');
         $destinationAddress = trim($body['destination_address'] ?? '');
@@ -84,10 +78,10 @@ class Deliveries extends MY_Controller
             if (!$office) {
                 return $this->json_response(array('success' => false, 'message' => 'Kantor tujuan tidak valid'), 422);
             }
-        } elseif ($destinationLat === null || $destinationLng === null || $destinationName === '') {
+        } elseif ($destinationAddress === '') {
             return $this->json_response(array(
                 'success' => false,
-                'message' => 'Tujuan pengiriman wajib diisi: pilih kantor atau tentukan nama & lokasi tujuan',
+                'message' => 'Tujuan pengiriman wajib diisi: pilih kantor atau isi alamat tujuan',
             ), 422);
         }
 
@@ -103,7 +97,7 @@ class Deliveries extends MY_Controller
             'vehicle_type'            => $vehicleType,
             'color'                   => $color,
             'destination_office_id'   => $office['id'] ?? null,
-            'destination_name'        => $office['name'] ?? $destinationName,
+            'destination_name'        => $office['name'] ?? ($destinationName ?: $destinationAddress),
             'destination_address'     => $office['address'] ?? ($destinationAddress ?: null),
             'destination_latitude'    => $office ? $office['latitude'] : $destinationLat,
             'destination_longitude'   => $office ? $office['longitude'] : $destinationLng,
@@ -166,6 +160,12 @@ class Deliveries extends MY_Controller
         // longitude/radius yang tersimpan sejak "Mulai Pengiriman" — berlaku
         // sama persis baik tujuannya kantor terdaftar maupun tujuan bebas
         // yang driver tentukan sendiri, tidak perlu tahu bedanya lagi di sini.
+        // Untuk tujuan bebas, destination_latitude/longitude bisa saja
+        // masih NULL di sini (driver hanya mengisi alamat, admin belum
+        // sempat mengisi titik koordinatnya di panel admin) — dalam hal
+        // itu validasi jarak dilewati ($distance tetap null di bawah) dan
+        // pengiriman boleh diselesaikan tanpa pengecekan radius, sampai
+        // admin melengkapi koordinatnya.
         $radius = (int) ($delivery['destination_radius'] ?: 100);
         $distance = (isset($delivery['destination_latitude']) && isset($delivery['destination_longitude'])
             && $delivery['destination_latitude'] !== null && $delivery['destination_longitude'] !== null)

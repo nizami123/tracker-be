@@ -71,6 +71,38 @@ class Deliveries extends MY_Admin_Controller
         ));
     }
 
+    public function set_destination_point($id)
+    {
+        $delivery = $this->Admin_delivery_model->getById((int) $id, $this->officeScope());
+        if (!$delivery) {
+            return $this->json(array('success' => false, 'message' => 'Pengiriman tidak ditemukan'), 404);
+        }
+        if (!empty($delivery['destination_office_id'])) {
+            return $this->json(array(
+                'success' => false,
+                'message' => 'Tujuan pengiriman ini kantor terdaftar, koordinatnya mengikuti Master Kantor',
+            ), 422);
+        }
+
+        $lat = $this->input->post('destination_latitude');
+        $lng = $this->input->post('destination_longitude');
+        $radius = $this->input->post('destination_radius');
+
+        if ($lat === '' || $lat === null || $lng === '' || $lng === null || !is_numeric($lat) || !is_numeric($lng)) {
+            return $this->json(array('success' => false, 'message' => 'Latitude dan longitude wajib diisi dan berupa angka'), 422);
+        }
+
+        $radiusValue = ($radius !== '' && $radius !== null && is_numeric($radius)) ? (int) $radius : null;
+
+        $this->Admin_delivery_model->updateDestinationPoint((int) $id, (float) $lat, (float) $lng, $radiusValue);
+
+        $this->json(array(
+            'success'  => true,
+            'message'  => 'Titik koordinat tujuan tersimpan',
+            'delivery' => $this->Admin_delivery_model->getById((int) $id, $this->officeScope()),
+        ));
+    }
+
     /**
      * Builds the delivery timeline strictly from columns that actually
      * exist and are actually filled in for this row — no placeholder/

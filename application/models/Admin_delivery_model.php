@@ -98,4 +98,16 @@ class Admin_delivery_model extends CI_Model
         if ($officeId) $q->where('office_id', $officeId);
         return $q->get('employees')->result_array();
     }
+    
+    public function updateDestinationPoint(int $id, float $lat, float $lng, ?int $radius): void
+    {
+        $data = array(
+            'destination_latitude'  => $lat,
+            'destination_longitude' => $lng,
+        );
+        if ($radius !== null) {
+            $data['destination_radius'] = $radius;
+        }
+        $this->db->where('id', $id)->update('vehicle_deliveries', $data);
+    }
 }

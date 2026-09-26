@@ -63,6 +63,51 @@
 </div>
 <?php endif; ?>
 
+<?php if (empty($delivery['destination_office_id'])): ?>
+<div class="at-card mb-3">
+    <h6 class="fw-bold mb-1"><i class="bi bi-geo-alt me-1"></i>Titik Koordinat Tujuan</h6>
+    <p class="text-gray small mb-3">
+        Tujuan pengiriman ini adalah alamat bebas yang ditulis driver, bukan kantor terdaftar.
+        Driver hanya mengisi alamat lengkapnya — isi/perbarui titik lat &amp; lng di sini sebagai
+        patokan radius kedatangan (validasi "Selesaikan Pengiriman" di aplikasi driver memakai titik ini).
+        Selama titik ini belum diisi, pengiriman boleh diselesaikan driver tanpa pengecekan radius.
+    </p>
+
+    <div class="row g-3">
+        <div class="col-md-5">
+            <div class="mb-2">
+                <label class="form-label small text-gray mb-1">Alamat dari Driver</label>
+                <div class="fw-bold"><?= html_escape($delivery['destination_address'] ?: $delivery['destination_name'] ?: '-') ?></div>
+            </div>
+            <div class="mb-2">
+                <label class="form-label small text-gray mb-1" for="destLat">Latitude</label>
+                <input type="text" id="destLat" class="form-control form-control-sm" inputmode="decimal"
+                       value="<?= $delivery['destination_latitude'] !== null ? html_escape($delivery['destination_latitude']) : '' ?>" placeholder="Klik peta di samping">
+            </div>
+            <div class="mb-2">
+                <label class="form-label small text-gray mb-1" for="destLng">Longitude</label>
+                <input type="text" id="destLng" class="form-control form-control-sm" inputmode="decimal"
+                       value="<?= $delivery['destination_longitude'] !== null ? html_escape($delivery['destination_longitude']) : '' ?>" placeholder="Klik peta di samping">
+            </div>
+            <div class="mb-2">
+                <label class="form-label small text-gray mb-1" for="destRadius">Radius Kedatangan (meter)</label>
+                <input type="number" id="destRadius" class="form-control form-control-sm" min="1"
+                       value="<?= html_escape($delivery['destination_radius'] ?: 100) ?>">
+            </div>
+            <div id="destPointError" class="text-danger small mb-2 d-none"></div>
+            <button type="button" id="btnSaveDestPoint" class="btn btn-sm btn-at-primary">
+                <i class="bi bi-check2 me-1"></i>Simpan Titik Koordinat
+            </button>
+            <span id="destPointSaved" class="text-success small ms-2 d-none"><i class="bi bi-check-circle-fill me-1"></i>Tersimpan</span>
+        </div>
+        <div class="col-md-7">
+            <div id="destPointMap" style="height:280px;border-radius:8px;"></div>
+            <p class="text-gray small mt-1 mb-0">Klik di peta atau geser marker untuk menentukan titik lokasi tujuan.</p>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <div class="at-card mb-3">
     <div class="d-flex align-items-center justify-content-between mb-3">
         <h6 class="fw-bold mb-0"><i class="bi bi-clock-history me-1"></i>Timeline Pengiriman</h6>
@@ -90,3 +135,83 @@
         </ul>
     <?php endif; ?>
 </div>
+
+<?php if (empty($delivery['destination_office_id'])): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const deliveryId = <?= (int) $delivery['id'] ?>;
+    const latInput = document.getElementById('destLat');
+    const lngInput = document.getElementById('destLng');
+
+    const initialLat = parseFloat(latInput.value) || -7.257472;
+    const initialLng = parseFloat(lngInput.value) || 112.752090;
+
+    const map = L.map('destPointMap').setView([initialLat, initialLng], latInput.value ? 16 : 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    let marker = null;
+    if (latInput.value && lngInput.value) {
+        marker = L.marker([initialLat, initialLng], { draggable: true }).addTo(map);
+        bindMarkerDrag();
+    }
+
+    function bindMarkerDrag() {
+        marker.on('dragend', function (e) {
+            const pos = e.target.getLatLng();
+            latInput.value = pos.lat.toFixed(7);
+            lngInput.value = pos.lng.toFixed(7);
+        });
+    }
+
+    map.on('click', function (e) {
+        latInput.value = e.latlng.lat.toFixed(7);
+        lngInput.value = e.latlng.lng.toFixed(7);
+        if (marker) {
+            marker.setLatLng(e.latlng);
+        } else {
+            marker = L.marker(e.latlng, { draggable: true }).addTo(map);
+            bindMarkerDrag();
+        }
+    });
+
+    setTimeout(function () { map.invalidateSize(); }, 250);
+
+    document.getElementById('btnSaveDestPoint').addEventListener('click', function () {
+        const errEl = document.getElementById('destPointError');
+        const savedEl = document.getElementById('destPointSaved');
+        errEl.classList.add('d-none');
+        savedEl.classList.add('d-none');
+
+        const lat = latInput.value.trim();
+        const lng = lngInput.value.trim();
+        if (!lat || !lng || isNaN(parseFloat(lat)) || isNaN(parseFloat(lng))) {
+            errEl.textContent = 'Klik peta atau isi latitude & longitude terlebih dahulu';
+            errEl.classList.remove('d-none');
+            return;
+        }
+
+        const fd = new FormData();
+        fd.append('destination_latitude', lat);
+        fd.append('destination_longitude', lng);
+        fd.append('destination_radius', document.getElementById('destRadius').value);
+
+        fetch(ADMIN_BASE_URL + 'admin/deliveries/set_destination_point/' + deliveryId, { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    savedEl.classList.remove('d-none');
+                } else {
+                    errEl.textContent = res.message || 'Gagal menyimpan titik koordinat';
+                    errEl.classList.remove('d-none');
+                }
+            })
+            .catch(function () {
+                errEl.textContent = 'Gagal menghubungi server';
+                errEl.classList.remove('d-none');
+            });
+    });
+});
+</script>
+<?php endif; ?>
