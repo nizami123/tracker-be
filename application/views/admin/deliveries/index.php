@@ -92,15 +92,15 @@ document.addEventListener('DOMContentLoaded', function () {
         },
         order: [[0, 'desc']],
         columns: [
-            { data: 'created_at', render: d => d ? d.substring(0, 16).replace('T', ' ') : '-' },
+            { data: 'created_at', render: (d, t, row) => d ? d.substring(0, 16).replace('T', ' ') + ' ' + row.tz_label : '-' },
             { data: null, render: row => `${row.driver_name}<div class="text-gray" style="font-size:11px;">${row.driver_code}</div>` },
             { data: null, render: row => `${row.brand} ${row.vehicle_type}` },
             { data: 'engine_number' },
             { data: 'chassis_number' },
             { data: 'color' },
             { data: 'destination_office_name', render: (d, type, row) => d || row.destination_name || '-' },
-            { data: 'pickup_time', render: d => d ? d.substring(11, 19) : '-' },
-            { data: 'arrival_time', render: d => d ? d.substring(11, 19) : '-' },
+            { data: 'pickup_time', render: (d, t, row) => d ? d.substring(11, 19) + ' ' + row.tz_label : '-' },
+            { data: 'arrival_time', render: (d, t, row) => d ? d.substring(11, 19) + ' ' + row.tz_label : '-' },
             { data: 'status', render: statusBadge },
             {
                 data: null, orderable: false, className: 'text-end',

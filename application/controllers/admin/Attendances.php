@@ -56,7 +56,7 @@ class Attendances extends MY_Admin_Controller
             'draw'            => $dt['draw'],
             'recordsTotal'    => $this->Admin_attendance_model->countAll($officeId),
             'recordsFiltered' => $this->Admin_attendance_model->countFiltered($filters, $officeId),
-            'data'            => $rows,
+            'data'            => $this->withTzLabel($rows, 'office_timezone'),
         ));
     }
 }

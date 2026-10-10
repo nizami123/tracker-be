@@ -27,7 +27,7 @@ class Admin_tracking_model extends CI_Model
                 employees.id AS employee_id,
                 employees.name AS employee_name,
                 employees.employee_code,
-                offices.name AS office_name,
+                offices.name AS office_name, offices.code AS office_code, offices.timezone AS office_timezone,
                 COUNT(*) AS tracking_count,
                 MIN(attendance_tracking.recorded_at) AS first_point_at,
                 MAX(attendance_tracking.recorded_at) AS last_point_at
@@ -44,10 +44,15 @@ class Admin_tracking_model extends CI_Model
         }
 
         $sql .= "
-            GROUP BY employees.id, employees.name, employees.employee_code, offices.name
+            GROUP BY employees.id, employees.name, employees.employee_code, offices.name, offices.code, offices.timezone
             ORDER BY last_point_at DESC";
 
-        return $this->db->query($sql, $params)->result_array();
+        $rows = $this->db->query($sql, $params)->result_array();
+        foreach ($rows as &$r) {
+            $r['tz_label'] = office_tz_label($r['office_timezone'] ?? null);
+        }
+        unset($r);
+        return $rows;
     }
 
     /**
@@ -62,7 +67,7 @@ class Admin_tracking_model extends CI_Model
                 employees.name as employee_name,
                 employees.employee_code,
                 employees.nip,
-                offices.name as office_name,
+                offices.name as office_name, offices.code as office_code, offices.timezone as office_timezone,
                 offices.latitude as office_latitude,
                 offices.longitude as office_longitude,
                 offices.check_in_radius
@@ -77,6 +82,7 @@ class Admin_tracking_model extends CI_Model
         if (!$row) return null;
 
         $row['tracking_date'] = $date;
+        $row['tz_label'] = office_tz_label($row['office_timezone'] ?? null);
         return $row;
     }
 

@@ -31,8 +31,8 @@
                     <tr>
                         <td><?= html_escape($r['employee_name']) ?><div class="text-gray" style="font-size:11px;"><?= html_escape($r['employee_code']) ?></div></td>
                         <td><?= html_escape($r['office_name']) ?></td>
-                        <td><?= $r['first_point_at'] ? html_escape(substr($r['first_point_at'], 11, 8)) : '-' ?></td>
-                        <td><?= $r['last_point_at'] ? html_escape(substr($r['last_point_at'], 11, 8)) : '-' ?></td>
+                        <td><?= $r['first_point_at'] ? html_escape(substr($r['first_point_at'], 11, 8)) . ' ' . $r['tz_label'] : '-' ?></td>
+                        <td><?= $r['last_point_at'] ? html_escape(substr($r['last_point_at'], 11, 8)) . ' ' . $r['tz_label'] : '-' ?></td>
                         <td><?= (int) $r['tracking_count'] ?></td>
                         <td>
                             <?php if ($isToday): ?>

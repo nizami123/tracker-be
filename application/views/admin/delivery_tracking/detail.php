@@ -12,8 +12,8 @@
     <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">No. Mesin / Rangka</div><div class="fw-bold" style="font-size:12.5px;"><?= html_escape($delivery['engine_number']) ?> / <?= html_escape($delivery['chassis_number']) ?></div></div></div>
     <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Merk / Tipe / Warna</div><div class="fw-bold" style="font-size:12.5px;"><?= html_escape($delivery['brand']) ?> <?= html_escape($delivery['vehicle_type']) ?>, <?= html_escape($delivery['color']) ?></div></div></div>
     <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Tujuan</div><div class="fw-bold"><?= html_escape($delivery['destination_office_name'] ?: $delivery['destination_name'] ?: '-') ?></div></div></div>
-    <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Waktu Mulai</div><div class="fw-bold"><?= $delivery['pickup_time'] ? substr($delivery['pickup_time'], 11, 8) : '-' ?></div></div></div>
-    <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Waktu Selesai</div><div class="fw-bold"><?= $delivery['arrival_time'] ? substr($delivery['arrival_time'], 11, 8) : 'Belum selesai' ?></div></div></div>
+    <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Waktu Mulai</div><div class="fw-bold"><?= $delivery['pickup_time'] ? substr($delivery['pickup_time'], 11, 8) . ' ' . office_tz_label($delivery['driver_office_timezone'] ?? null) : '-' ?></div></div></div>
+    <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Waktu Selesai</div><div class="fw-bold"><?= $delivery['arrival_time'] ? substr($delivery['arrival_time'], 11, 8) . ' ' . office_tz_label($delivery['driver_office_timezone'] ?? null) : 'Belum selesai' ?></div></div></div>
     <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Status</div><div class="fw-bold"><?= html_escape($delivery['status']) ?></div></div></div>
     <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Total Titik</div><div class="fw-bold" id="totalPoints">-</div></div></div>
 </div>
@@ -67,6 +67,7 @@ document.addEventListener('DOMContentLoaded', function () {
         L.circle([destLat, destLng], { radius: destRadius, color: '#2F6FED', weight: 1, fillOpacity: .08 }).addTo(map);
     }
 
+    const TZ_LABEL = <?= json_encode(office_tz_label($delivery['driver_office_timezone'] ?? null)) ?>;
     let polyline = null;
     let markers = [];
     let lastPointTime = null;
@@ -74,7 +75,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function pointPopupHtml(p) {
         return `
             <div style="font-size:12.5px;">
-                <strong>${p.recorded_at}</strong><br>
+                <strong>${p.recorded_at} ${TZ_LABEL}</strong><br>
                 Lat: ${parseFloat(p.latitude).toFixed(6)}<br>
                 Lng: ${parseFloat(p.longitude).toFixed(6)}<br>
                 Akurasi: ${p.accuracy ? Math.round(p.accuracy) + ' m' : '-'}<br>

@@ -16,6 +16,7 @@ class Admin_request_model extends CI_Model
                 employees.name as employee_name,
                 employees.employee_code,
                 offices.name as office_name,
+                offices.timezone as office_timezone,
                 approver.name as approved_by_name
             ")
             ->from('attendance_requests')
@@ -85,6 +86,7 @@ class Admin_request_model extends CI_Model
                 employees.employee_code,
                 employees.nip,
                 offices.name as office_name,
+                offices.timezone as office_timezone,
                 approver.name as approved_by_name
             ")
             ->from('attendance_requests')
@@ -96,25 +98,38 @@ class Admin_request_model extends CI_Model
         return $this->db->get()->row_array();
     }
 
+    /** Zona waktu (WIB/WITA/WIT) kantor pengaju — approved_at/updated_at disimpan di zona yang sama dengan created_at pengajuan. */
+    private function requestTimezone(int $id): string
+    {
+        $row = $this->db->select('offices.timezone')
+            ->from('attendance_requests')
+            ->join('offices', 'offices.id = attendance_requests.office_id')
+            ->where('attendance_requests.id', $id)
+            ->get()->row_array();
+        return office_timezone($row ?: null);
+    }
+
     public function approve(int $id, int $adminId): void
     {
+        $tz = $this->requestTimezone($id);
         $this->db->where('id', $id)->update('attendance_requests', array(
             'status'      => 'APPROVED',
             'approved_by' => $adminId,
-            'approved_at' => now_datetime(),
+            'approved_at' => now_datetime($tz),
             'rejection_reason' => null,
-            'updated_at'  => now_datetime(),
+            'updated_at'  => now_datetime($tz),
         ));
     }
 
     public function reject(int $id, int $adminId, string $reason): void
     {
+        $tz = $this->requestTimezone($id);
         $this->db->where('id', $id)->update('attendance_requests', array(
             'status'      => 'REJECTED',
             'approved_by' => $adminId,
-            'approved_at' => now_datetime(),
+            'approved_at' => now_datetime($tz),
             'rejection_reason' => $reason,
-            'updated_at'  => now_datetime(),
+            'updated_at'  => now_datetime($tz),
         ));
     }
 }

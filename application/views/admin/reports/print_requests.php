@@ -21,7 +21,7 @@
     <div class="no-print"><button onclick="window.print()">Cetak / Simpan sebagai PDF</button></div>
 
     <h2>Laporan Pengajuan</h2>
-    <p class="sub">Periode: <?= html_escape($filters['date_from']) ?> s/d <?= html_escape($filters['date_to']) ?> — dicetak <?= date('d F Y H:i') ?></p>
+    <p class="sub">Periode: <?= html_escape($filters['date_from']) ?> s/d <?= html_escape($filters['date_to']) ?> — dicetak <?= date('d F Y H:i') ?> WIB</p>
 
     <div class="summary">
         <div>Total<strong><?= $summary['total'] ?></strong></div>
@@ -38,7 +38,7 @@
             ?>
             <?php foreach ($rows as $r): ?>
                 <tr>
-                    <td><?= html_escape(substr($r['created_at'], 0, 16)) ?></td>
+                    <td><?= html_escape(substr($r['created_at'], 0, 16)) . ' ' . office_tz_label($r['office_timezone'] ?? null) ?></td>
                     <td><?= html_escape($r['employee_name']) ?></td>
                     <td><?= html_escape($r['office_name']) ?></td>
                     <td><?= $typeLabels[$r['type']] ?? html_escape($r['type']) ?></td>

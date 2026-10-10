@@ -24,7 +24,8 @@ class Attendance extends MY_Controller
         $lat = isset($body['latitude']) ? (float) $body['latitude'] : null;
         $lng = isset($body['longitude']) ? (float) $body['longitude'] : null;
         $accuracy = isset($body['accuracy']) ? (float) $body['accuracy'] : null;
-        $timestamp = $body['timestamp'] ?? now_datetime();
+        $tz = employee_timezone($employee); // zona waktu kantor karyawan (WIB/WITA/WIT)
+        $timestamp = normalize_client_datetime($body['timestamp'] ?? null, $tz);
         $photoBase64 = $body['photo_base64'] ?? null;
 
         if ($lat === null || $lng === null) {
@@ -34,7 +35,7 @@ class Attendance extends MY_Controller
         $this->load->model('Attendance_model');
         $this->load->model('Office_model');
 
-        if ($this->Attendance_model->alreadyCheckedInToday((int) $employee['id'])) {
+        if ($this->Attendance_model->alreadyCheckedInToday((int) $employee['id'], $tz)) {
             return $this->json_response(array(
                 'success' => false,
                 'message' => 'Anda sudah melakukan absen masuk hari ini',
@@ -68,7 +69,7 @@ class Attendance extends MY_Controller
         $attendanceId = $this->Attendance_model->insertCheckIn(array(
             'employee_id'         => $employee['id'],
             'office_id'           => $office['id'],
-            'attendance_date'     => today_date(),
+            'attendance_date'     => today_date($tz),
             'check_in_time'       => $timestamp,
             'check_in_photo'      => $photoFilename,
             'check_in_latitude'   => $lat,
@@ -76,7 +77,7 @@ class Attendance extends MY_Controller
             'check_in_accuracy'   => $accuracy,
             'check_in_distance'   => round($distance, 2),
             'status'              => 'PRESENT',
-            'created_at'          => now_datetime(),
+            'created_at'          => now_datetime($tz),
         ));
 
         $attendance = $this->Attendance_model->getById($attendanceId);
@@ -100,7 +101,8 @@ class Attendance extends MY_Controller
         $lat = isset($body['latitude']) ? (float) $body['latitude'] : null;
         $lng = isset($body['longitude']) ? (float) $body['longitude'] : null;
         $accuracy = isset($body['accuracy']) ? (float) $body['accuracy'] : null;
-        $timestamp = $body['timestamp'] ?? now_datetime();
+        $tz = employee_timezone($employee);
+        $timestamp = normalize_client_datetime($body['timestamp'] ?? null, $tz);
         $photoBase64 = $body['photo_base64'] ?? null;
 
         if (!$attendanceId || $lat === null || $lng === null) {
@@ -148,7 +150,7 @@ class Attendance extends MY_Controller
             'check_out_longitude' => $lng,
             'check_out_accuracy'  => $accuracy,
             'check_out_distance'  => round($distance, 2),
-            'updated_at'          => now_datetime(),
+            'updated_at'          => now_datetime($tz),
         ));
 
         $updated = $this->Attendance_model->getById($attendanceId);
@@ -167,7 +169,7 @@ class Attendance extends MY_Controller
     {
         $employee = $this->require_auth();
         $this->load->model('Attendance_model');
-        $attendance = $this->Attendance_model->getToday((int) $employee['id']);
+        $attendance = $this->Attendance_model->getToday((int) $employee['id'], employee_timezone($employee));
         $this->json_response($attendance ?: null, 200);
     }
 

@@ -36,7 +36,9 @@ class Admin_dashboard_model extends CI_Model
 
     public function hadirHariIni(?int $officeId): int
     {
-        $q = $this->db->where('attendance_date', today_date());
+        // "Hari ini" mengikuti zona kantor karyawan (WIB / WITA / WIT).
+        $todayExpr = sql_office_zone_case('office_id', fn($tz) => today_date($tz));
+        $q = $this->db->where("attendance_date = $todayExpr", null, false);
         if ($officeId) $q->where('office_id', $officeId);
         return (int) $q->count_all_results('attendances');
     }
@@ -48,15 +50,17 @@ class Admin_dashboard_model extends CI_Model
      */
     public function sedangTracking(?int $officeId): int
     {
-        list($start, $end) = day_range(today_date());
+        // Batas hari per zona kantor (WIB / WITA / WIT).
+        $startExpr = sql_office_zone_case('employees.office_id', fn($tz) => day_range(today_date($tz))[0]);
+        $endExpr   = sql_office_zone_case('employees.office_id', fn($tz) => day_range(today_date($tz))[1]);
 
         $this->db->select('COUNT(DISTINCT attendance_tracking.employee_id) AS total', false)
             ->from('attendance_tracking')
-            ->where('attendance_tracking.recorded_at >=', $start)
-            ->where('attendance_tracking.recorded_at <', $end);
+            ->join('employees', 'employees.id = attendance_tracking.employee_id')
+            ->where("attendance_tracking.recorded_at >= $startExpr", null, false)
+            ->where("attendance_tracking.recorded_at < $endExpr", null, false);
         if ($officeId) {
-            $this->db->join('employees', 'employees.id = attendance_tracking.employee_id')
-                ->where('employees.office_id', $officeId);
+            $this->db->where('employees.office_id', $officeId);
         }
         $row = $this->db->get()->row_array();
         return (int) ($row['total'] ?? 0);

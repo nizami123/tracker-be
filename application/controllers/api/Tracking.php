@@ -34,6 +34,7 @@ class Tracking extends MY_Controller
 
         $this->load->model('Tracking_model');
 
+        $tz = employee_timezone($employee); // zona waktu kantor karyawan (WIB/WITA/WIT)
         $rows = array();
 
         foreach ($points as $point) {
@@ -52,7 +53,8 @@ class Tracking extends MY_Controller
                 'speed'         => $point['speed'] ?? null,
                 'bearing'       => $point['bearing'] ?? null,
                 'battery_level' => $point['battery_level'] ?? null,
-                'recorded_at'   => $this->normalizeRecordedAt($point['recorded_at'] ?? null),
+                'recorded_at'   => $this->normalizeRecordedAt($point['recorded_at'] ?? null, $tz),
+                'received_at'   => now_datetime($tz),
             );
         }
 
@@ -67,7 +69,7 @@ class Tracking extends MY_Controller
     /**
      * GET /api/tracking?date=YYYY-MM-DD
      * The authenticated employee's own tracking points for one date
-     * (defaults to today, GMT+7). employee_id always comes from the
+     * (defaults to today in the employee's own WIB/WITA/WIT zone). employee_id always comes from the
      * token — used by the Android tracking-detail screen.
      */
     public function index()
@@ -75,7 +77,7 @@ class Tracking extends MY_Controller
         $employee = $this->require_auth();
 
         $date = $this->input->get('date');
-        if ($date === null || $date === '') $date = today_date();
+        if ($date === null || $date === '') $date = today_date(employee_timezone($employee));
 
         if (!valid_date_string($date)) {
             return $this->json_response(array('success' => false, 'message' => 'Format tanggal harus YYYY-MM-DD'), 422);
@@ -88,10 +90,10 @@ class Tracking extends MY_Controller
     /**
      * recorded_at decides which DATE a point belongs to, so it must be a
      * real "Y-m-d H:i:s" timestamp. Anything missing/malformed falls
-     * back to the server's own time (GMT+7) rather than dropping the
+     * back to the server's own time in the employee's zone (WIB/WITA/WIT) rather than dropping the
      * point — same "never lose a tracking point" rule as before.
      */
-    private function normalizeRecordedAt($value): string
+    private function normalizeRecordedAt($value, string $tz): string
     {
         if (is_string($value)) {
             $d = DateTime::createFromFormat('Y-m-d H:i:s', $value);
@@ -99,6 +101,6 @@ class Tracking extends MY_Controller
                 return $value;
             }
         }
-        return now_datetime();
+        return now_datetime($tz);
     }
 }

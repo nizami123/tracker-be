@@ -16,7 +16,8 @@ class Admin_delivery_model extends CI_Model
                 employees.name as driver_name,
                 employees.employee_code as driver_code,
                 dest.name as destination_office_name,
-                driver_office.name as driver_office_name
+                driver_office.name as driver_office_name,
+                driver_office.code as driver_office_code, driver_office.timezone as driver_office_timezone
             ")
             ->from('vehicle_deliveries')
             ->join('employees', 'employees.id = vehicle_deliveries.driver_id')
@@ -82,11 +83,14 @@ class Admin_delivery_model extends CI_Model
                 employees.employee_code as driver_code,
                 employees.phone as driver_phone,
                 dest.name as destination_office_name,
-                dest.address as destination_office_address
+                dest.address as destination_office_address,
+                driver_office.name as driver_office_name,
+                driver_office.code as driver_office_code, driver_office.timezone as driver_office_timezone
             ")
             ->from('vehicle_deliveries')
             ->join('employees', 'employees.id = vehicle_deliveries.driver_id')
             ->join('offices as dest', 'dest.id = vehicle_deliveries.destination_office_id', 'left')
+            ->join('offices as driver_office', 'driver_office.id = employees.office_id', 'left')
             ->where('vehicle_deliveries.id', $id);
         if ($officeId) $this->db->where('employees.office_id', $officeId);
         return $this->db->get()->row_array();
@@ -98,7 +102,15 @@ class Admin_delivery_model extends CI_Model
         if ($officeId) $q->where('office_id', $officeId);
         return $q->get('employees')->result_array();
     }
-    
+
+    /**
+     * Admin melengkapi titik koordinat (lat/lng) untuk tujuan bebas
+     * (driver hanya menulis alamat lengkap saat "Mulai Pengiriman",
+     * tanpa geocoding di HP) — titik ini yang dipakai sebagai patokan
+     * radius kedatangan ("Selesaikan Pengiriman") begitu tersimpan.
+     * Radius opsional: kalau tidak diisi, radius yang sudah ada
+     * (default 100 m) tetap dipakai.
+     */
     public function updateDestinationPoint(int $id, float $lat, float $lng, ?int $radius): void
     {
         $data = array(

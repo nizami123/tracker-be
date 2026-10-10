@@ -64,7 +64,7 @@ class Requests extends MY_Admin_Controller
             'draw'            => $dt['draw'],
             'recordsTotal'    => $this->Admin_request_model->countAll($officeId),
             'recordsFiltered' => $this->Admin_request_model->countFiltered($filters, $officeId),
-            'data'            => $rows,
+            'data'            => $this->withTzLabel($rows, 'office_timezone'),
         ));
     }
 
@@ -72,7 +72,7 @@ class Requests extends MY_Admin_Controller
     {
         $row = $this->Admin_request_model->getById((int) $id, $this->officeScope());
         if (!$row) return $this->json(array('success' => false, 'message' => 'Pengajuan tidak ditemukan'), 404);
-        $this->json(array('success' => true, 'data' => $row));
+        $this->json(array('success' => true, 'data' => $this->withTzLabel(array($row), 'office_timezone')[0]));
     }
 
     public function approve($id)

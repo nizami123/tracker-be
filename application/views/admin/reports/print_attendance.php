@@ -23,7 +23,7 @@
     </div>
 
     <h2>Laporan Absensi</h2>
-    <p class="sub">Periode: <?= html_escape($filters['date_from']) ?> s/d <?= html_escape($filters['date_to']) ?> — dicetak <?= date('d F Y H:i') ?></p>
+    <p class="sub">Periode: <?= html_escape($filters['date_from']) ?> s/d <?= html_escape($filters['date_to']) ?> — dicetak <?= date('d F Y H:i') ?> WIB</p>
 
     <div class="summary">
         <div>Hadir<strong><?= $summary['hadir'] ?></strong></div>
@@ -41,8 +41,8 @@
                     <td><?= html_escape($r['attendance_date']) ?></td>
                     <td><?= html_escape($r['employee_name']) ?> (<?= html_escape($r['employee_code']) ?>)</td>
                     <td><?= html_escape($r['office_name']) ?></td>
-                    <td><?= $r['check_in_time'] ? html_escape(substr($r['check_in_time'], 11, 8)) : '-' ?></td>
-                    <td><?= $r['check_out_time'] ? html_escape(substr($r['check_out_time'], 11, 8)) : '-' ?></td>
+                    <td><?= $r['check_in_time'] ? html_escape(substr($r['check_in_time'], 11, 8)) . ' ' . office_tz_label($r['office_timezone'] ?? null) : '-' ?></td>
+                    <td><?= $r['check_out_time'] ? html_escape(substr($r['check_out_time'], 11, 8)) . ' ' . office_tz_label($r['office_timezone'] ?? null) : '-' ?></td>
                     <td><?= html_escape($r['status']) ?></td>
                 </tr>
             <?php endforeach; ?>

@@ -67,6 +67,7 @@ document.addEventListener('DOMContentLoaded', function () {
     L.marker([officeLat, officeLng], { icon: officeIcon }).addTo(map).bindPopup('Kantor');
     L.circle([officeLat, officeLng], { radius: officeRadius, color: '#2F6FED', weight: 1, fillOpacity: .08 }).addTo(map);
 
+    const TZ_LABEL = <?= json_encode($tracking['tz_label']) ?>; // WIB / WITA / WIT sesuai kantor karyawan
     let polyline = null;
     let markers = [];
     let lastPointTime = null;
@@ -74,7 +75,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function pointPopupHtml(p) {
         return `
             <div style="font-size:12.5px;">
-                <strong>${p.recorded_at}</strong><br>
+                <strong>${p.recorded_at} ${TZ_LABEL}</strong><br>
                 Lat: ${parseFloat(p.latitude).toFixed(6)}<br>
                 Lng: ${parseFloat(p.longitude).toFixed(6)}<br>
                 Akurasi: ${p.accuracy ? Math.round(p.accuracy) + ' m' : '-'}<br>
@@ -96,8 +97,8 @@ document.addEventListener('DOMContentLoaded', function () {
         // Titik" tetap kosong ("-") padahal datanya di database banyak.
         document.getElementById('totalPoints').textContent = points.length;
         lastPointTime = points[points.length - 1].recorded_at;
-        document.getElementById('firstPointTime').textContent = points[0].recorded_at.substring(11, 19);
-        document.getElementById('lastPointTime').textContent = lastPointTime.substring(11, 19);
+        document.getElementById('firstPointTime').textContent = points[0].recorded_at.substring(11, 19) + ' ' + TZ_LABEL;
+        document.getElementById('lastPointTime').textContent = lastPointTime.substring(11, 19) + ' ' + TZ_LABEL;
 
         if (polyline) map.removeLayer(polyline);
         markers.forEach(m => map.removeLayer(m));

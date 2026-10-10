@@ -55,7 +55,7 @@ class Admin_report_model extends CI_Model
 
     public function attendanceRows(string $dateFrom, string $dateTo, ?int $officeId, ?int $employeeId): array
     {
-        $this->db->select("attendances.*, employees.name as employee_name, employees.employee_code, offices.name as office_name")
+        $this->db->select("attendances.*, employees.name as employee_name, employees.employee_code, offices.name as office_name, offices.timezone as office_timezone")
             ->from('attendances')
             ->join('employees', 'employees.id = attendances.employee_id')
             ->join('offices', 'offices.id = attendances.office_id')
@@ -78,7 +78,7 @@ class Admin_report_model extends CI_Model
      */
     public function calendarEmployees(?int $officeId, ?int $employeeId): array
     {
-        $this->db->select('employees.id, employees.name, employees.employee_code, employees.nip, employees.position, employees.office_id, offices.name as office_name')
+        $this->db->select('employees.id, employees.name, employees.employee_code, employees.nip, employees.position, employees.office_id, offices.name as office_name, offices.timezone as office_timezone')
             ->from('employees')
             ->join('offices', 'offices.id = employees.office_id')
             ->where_in('employees.role', array('EMPLOYEE', 'DRIVER'))
@@ -153,7 +153,7 @@ class Admin_report_model extends CI_Model
 
     public function requestRows(array $filters, ?int $officeId): array
     {
-        $this->db->select("attendance_requests.*, employees.name as employee_name, employees.employee_code, offices.name as office_name")
+        $this->db->select("attendance_requests.*, employees.name as employee_name, employees.employee_code, offices.name as office_name, offices.timezone as office_timezone")
             ->from('attendance_requests')
             ->join('employees', 'employees.id = attendance_requests.employee_id')
             ->join('offices', 'offices.id = attendance_requests.office_id')
@@ -185,11 +185,14 @@ class Admin_report_model extends CI_Model
         $this->db->select("
                 vehicle_deliveries.*,
                 employees.name as driver_name, employees.employee_code as driver_code,
-                dest.name as destination_office_name
+                dest.name as destination_office_name,
+                driver_office.name as driver_office_name,
+                driver_office.code as driver_office_code, driver_office.timezone as driver_office_timezone
             ")
             ->from('vehicle_deliveries')
             ->join('employees', 'employees.id = vehicle_deliveries.driver_id')
             ->join('offices as dest', 'dest.id = vehicle_deliveries.destination_office_id', 'left')
+            ->join('offices as driver_office', 'driver_office.id = employees.office_id', 'left')
             ->order_by('vehicle_deliveries.created_at', 'ASC');
 
         if (!empty($filters['date_from'])) $this->db->where('DATE(vehicle_deliveries.created_at) >=', $filters['date_from']);

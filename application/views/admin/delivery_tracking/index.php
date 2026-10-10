@@ -28,9 +28,9 @@
                         <td><?= html_escape($r['driver_name']) ?><div class="text-gray" style="font-size:11px;"><?= html_escape($r['driver_code']) ?></div></td>
                         <td><?= html_escape($r['brand']) ?> <?= html_escape($r['vehicle_type']) ?></td>
                         <td><?= html_escape($r['destination_office_name'] ?: $r['destination_name'] ?: '-') ?></td>
-                        <td><?= $r['pickup_time'] ? html_escape(substr($r['pickup_time'], 11, 8)) : '-' ?></td>
+                        <td><?= $r['pickup_time'] ? html_escape(substr($r['pickup_time'], 11, 8)) . ' ' . office_tz_label($r['driver_office_timezone'] ?? null) : '-' ?></td>
                         <td><?= (int) $r['tracking_count'] ?></td>
-                        <td><?= $r['last_point_at'] ? html_escape(substr($r['last_point_at'], 11, 8)) : '-' ?></td>
+                        <td><?= $r['last_point_at'] ? html_escape(substr($r['last_point_at'], 11, 8)) . ' ' . office_tz_label($r['driver_office_timezone'] ?? null) : '-' ?></td>
                         <td>
                             <?php if ($isArrived): ?>
                                 <span class="badge-at badge-at-orange">SAMPAI TUJUAN</span>

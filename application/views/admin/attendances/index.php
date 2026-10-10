@@ -105,9 +105,9 @@ document.addEventListener('DOMContentLoaded', function () {
             { data: 'attendance_date' },
             { data: null, render: row => `${row.employee_name}<div class="text-gray" style="font-size:11px;">${row.employee_code}</div>` },
             { data: 'office_name' },
-            { data: 'check_in_time', render: d => d ? d.substring(11, 19) : '-' },
+            { data: 'check_in_time', render: (d, t, row) => d ? d.substring(11, 19) + ' ' + row.tz_label : '-' },
             { data: 'check_in_distance', render: d => d !== null ? Math.round(d) + ' m dari kantor' : '-' },
-            { data: 'check_out_time', render: d => d ? d.substring(11, 19) : '-' },
+            { data: 'check_out_time', render: (d, t, row) => d ? d.substring(11, 19) + ' ' + row.tz_label : '-' },
             { data: 'check_out_distance', render: d => d !== null ? Math.round(d) + ' m dari kantor' : '-' },
             {
                 data: null, orderable: false,

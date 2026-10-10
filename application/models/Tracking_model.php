@@ -38,7 +38,7 @@ class Tracking_model extends CI_Model
                         $row['employee_id'], $row['office_id'],
                         $row['latitude'], $row['longitude'], $row['accuracy'],
                         $row['speed'], $row['bearing'], $row['battery_level'],
-                        $row['recorded_at'], now_datetime(), now_datetime(),
+                        $row['recorded_at'], $row['received_at'] ?? now_datetime(), $row['received_at'] ?? now_datetime(),
                     )
                 );
 

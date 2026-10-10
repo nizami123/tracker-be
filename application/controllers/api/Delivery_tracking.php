@@ -29,6 +29,7 @@ class Delivery_tracking extends MY_Controller
         $this->load->model('Delivery_model');
         $this->load->model('DeliveryTracking_model');
 
+        $tz = employee_timezone($driver); // zona waktu kantor driver (WIB/WITA/WIT)
         $validRows = array();
         $syncedIds = array();
         $checkedDelivery = array();
@@ -53,7 +54,8 @@ class Delivery_tracking extends MY_Controller
                 'speed'         => $point['speed'] ?? null,
                 'bearing'       => $point['bearing'] ?? null,
                 'battery_level' => $point['battery_level'] ?? null,
-                'recorded_at'   => $point['recorded_at'] ?? now_datetime(),
+                'recorded_at'   => $this->normalizeRecordedAt($point['recorded_at'] ?? null, $tz),
+                'received_at'   => now_datetime($tz),
             );
             $syncedIds[] = $localId;
         }
@@ -61,6 +63,16 @@ class Delivery_tracking extends MY_Controller
         $this->DeliveryTracking_model->insertBatch($validRows);
 
         $this->json_response(array('success' => true, 'synced_ids' => $syncedIds), 200);
+    }
+
+    /** recorded_at harus 'Y-m-d H:i:s' valid; kalau tidak, pakai jam server di zona driver. */
+    private function normalizeRecordedAt($value, string $tz): string
+    {
+        if (is_string($value)) {
+            $d = DateTime::createFromFormat('Y-m-d H:i:s', $value);
+            if ($d !== false && $d->format('Y-m-d H:i:s') === $value) return $value;
+        }
+        return now_datetime($tz);
     }
 
     /** GET /api/delivery-tracking/{delivery_id} */

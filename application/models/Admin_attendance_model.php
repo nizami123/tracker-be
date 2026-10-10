@@ -16,6 +16,7 @@ class Admin_attendance_model extends CI_Model
                 employees.employee_code,
                 employees.nip,
                 offices.name as office_name,
+                offices.timezone as office_timezone,
                 (SELECT COUNT(*) FROM attendance_tracking WHERE attendance_tracking.employee_id = attendances.employee_id AND attendance_tracking.recorded_at >= attendances.attendance_date AND attendance_tracking.recorded_at < DATE_ADD(attendances.attendance_date, INTERVAL 1 DAY)) as tracking_count
             ", false)
             ->from('attendances')

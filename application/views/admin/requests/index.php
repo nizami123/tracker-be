@@ -148,7 +148,7 @@ document.addEventListener('DOMContentLoaded', function () {
         },
         order: [[0, 'desc']],
         columns: [
-            { data: 'created_at', render: d => d ? d.substring(0, 16).replace('T', ' ') : '-' },
+            { data: 'created_at', render: (d, t, row) => d ? d.substring(0, 16).replace('T', ' ') + ' ' + row.tz_label : '-' },
             { data: null, render: row => `${row.employee_name}<div class="text-gray" style="font-size:11px;">${row.employee_code}</div>` },
             { data: 'office_name' },
             { data: 'type', render: t => typeLabels[t] || t },
@@ -208,7 +208,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     <div class="mt-1">${attachHtml}</div>
                 </div>
                 ${r.status === 'REJECTED' && r.rejection_reason ? `<div class="alert alert-danger small py-2 mt-3"><strong>Alasan ditolak:</strong> ${r.rejection_reason}</div>` : ''}
-                ${r.status !== 'PENDING' && r.approved_by_name ? `<p class="text-gray small mb-0">Diproses oleh ${r.approved_by_name} pada ${(r.approved_at || '').substring(0, 16).replace('T', ' ')}</p>` : ''}
+                ${r.status !== 'PENDING' && r.approved_by_name ? `<p class="text-gray small mb-0">Diproses oleh ${r.approved_by_name} pada ${(r.approved_at || '').substring(0, 16).replace('T', ' ')} ${r.tz_label}</p>` : ''}
             `;
 
             const footer = document.getElementById('detailFooter');

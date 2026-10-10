@@ -58,12 +58,18 @@ class Offices extends MY_Admin_Controller
         // karena itu yang langsung dipakai Android tanpa konversi lagi.
         $trackingIntervalMinutes = $this->input->post('tracking_interval_minutes');
         $status = $this->input->post('status') === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE';
+        // Zona waktu kantor: WIB / WITA / WIT. Semua karyawan & driver yang
+        // terdaftar di kantor ini otomatis memakai zona ini (lihat response_helper.php).
+        $timezone = strtoupper(trim((string) $this->input->post('timezone')));
 
         if ($code === '' || $name === '' || $latitude === '' || $longitude === '') {
             return $this->json(array('success' => false, 'message' => 'Kode, nama, dan koordinat wajib diisi'), 422);
         }
         if (!is_numeric($latitude) || !is_numeric($longitude)) {
             return $this->json(array('success' => false, 'message' => 'Koordinat tidak valid'), 422);
+        }
+        if (!in_array($timezone, tz_codes(), true)) {
+            return $this->json(array('success' => false, 'message' => 'Zona waktu harus WIB, WITA, atau WIT'), 422);
         }
         if ($checkInRadius <= 0) $checkInRadius = 50;
         if ($checkOutRadius <= 0) $checkOutRadius = 50;
@@ -87,6 +93,7 @@ class Offices extends MY_Admin_Controller
             'check_in_radius' => $checkInRadius,
             'check_out_radius' => $checkOutRadius,
             'tracking_interval_seconds' => $trackingIntervalSeconds,
+            'timezone' => $timezone,
             'status' => $status,
         );
 

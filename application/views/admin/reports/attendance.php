@@ -71,8 +71,8 @@
                         <td><?= html_escape($r['attendance_date']) ?></td>
                         <td><?= html_escape($r['employee_name']) ?> <span class="text-gray">(<?= html_escape($r['employee_code']) ?>)</span></td>
                         <td><?= html_escape($r['office_name']) ?></td>
-                        <td><?= $r['check_in_time'] ? html_escape(substr($r['check_in_time'], 11, 8)) : '-' ?></td>
-                        <td><?= $r['check_out_time'] ? html_escape(substr($r['check_out_time'], 11, 8)) : '-' ?></td>
+                        <td><?= $r['check_in_time'] ? html_escape(substr($r['check_in_time'], 11, 8)) . ' ' . office_tz_label($r['office_timezone'] ?? null) : '-' ?></td>
+                        <td><?= $r['check_out_time'] ? html_escape(substr($r['check_out_time'], 11, 8)) . ' ' . office_tz_label($r['office_timezone'] ?? null) : '-' ?></td>
                         <td><?= html_escape($r['status']) ?></td>
                     </tr>
                 <?php endforeach; ?>

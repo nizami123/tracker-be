@@ -2,9 +2,10 @@
 defined('BASEPATH') OR exit('No direct script access allowed');
 
 // Perbaikan: seluruh proses tracking (waktu mulai, tiap titik, tanggal
-// tracking, waktu berhenti, pergantian hari) WAJIB memakai waktu server
-// GMT+7 (Asia/Jakarta), bukan timezone default PHP/hosting (yang sering
-// UTC) ataupun waktu perangkat/client. Helper ini di-load oleh MY_Controller
+// tracking, waktu berhenti, pergantian hari) WAJIB memakai waktu server,
+// bukan timezone default PHP/hosting (yang sering UTC) ataupun waktu
+// perangkat/client. Default server = WIB (Asia/Jakarta); zona tiap
+// karyawan mengikuti kantornya (lihat bagian "Zona waktu per KANTOR" di bawah). Helper ini di-load oleh MY_Controller
 // (API Android) dan MY_Admin_Controller (panel admin), jadi baris ini
 // otomatis berjalan di awal setiap request sebelum date()/now_datetime()/
 // today_date() dipakai di mana pun. Lihat juga MY_Controller /
@@ -12,17 +13,180 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 // supaya NOW()/CURDATE() di raw SQL konsisten dengan ini.
 date_default_timezone_set('Asia/Jakarta');
 
-if (!function_exists('now_datetime')) {
-    function now_datetime(): string
+// ------------------------------------------------------------------
+// Zona waktu per KANTOR (WIB / WITA / WIT)
+// ------------------------------------------------------------------
+// Zona waktu diatur admin di Master Kantor (kolom offices.timezone):
+//   WIB  = GMT+7 (Asia/Jakarta)
+//   WITA = GMT+8 (Asia/Makassar)
+//   WIT  = GMT+9 (Asia/Jayapura)
+// Semua karyawan/driver yang terdaftar di kantor tersebut otomatis
+// memakai zona kantornya. Semua waktu yang MASUK (absen, pengajuan,
+// tracking, pengiriman) disimpan sebagai jam dinding zona karyawan,
+// dan semua yang TAMPIL (API, panel admin, laporan) memakai jam yang
+// sama + label WIB/WITA/WIT.
+//
+// Kantor tanpa nilai timezone (data lama / belum diatur) dianggap WIB.
+if (!defined('TZ_WIB'))  define('TZ_WIB',  'Asia/Jakarta');
+if (!defined('TZ_WITA')) define('TZ_WITA', 'Asia/Makassar');
+if (!defined('TZ_WIT'))  define('TZ_WIT',  'Asia/Jayapura');
+
+if (!function_exists('tz_codes')) {
+    /** Kode zona yang valid, sesuai ENUM offices.timezone. */
+    function tz_codes(): array
     {
-        return date('Y-m-d H:i:s');
+        return array('WIB', 'WITA', 'WIT');
+    }
+}
+
+if (!function_exists('normalize_tz_code')) {
+    /** "wita" / " WIT " / null -> 'WIB'|'WITA'|'WIT' (nilai tak dikenal = 'WIB'). */
+    function normalize_tz_code($code): string
+    {
+        $c = strtoupper(trim((string) $code));
+        return in_array($c, tz_codes(), true) ? $c : 'WIB';
+    }
+}
+
+if (!function_exists('tz_code_to_php')) {
+    /** 'WIB'|'WITA'|'WIT' -> nama timezone PHP. */
+    function tz_code_to_php($code): string
+    {
+        switch (normalize_tz_code($code)) {
+            case 'WITA': return TZ_WITA;
+            case 'WIT':  return TZ_WIT;
+            default:     return TZ_WIB;
+        }
+    }
+}
+
+if (!function_exists('tz_label')) {
+    /** Label "WIB"/"WITA"/"WIT" dari nama timezone PHP ATAU dari kodenya. */
+    function tz_label($tzOrCode): string
+    {
+        if ($tzOrCode === TZ_WITA) return 'WITA';
+        if ($tzOrCode === TZ_WIT)  return 'WIT';
+        if ($tzOrCode === TZ_WIB)  return 'WIB';
+        return normalize_tz_code($tzOrCode);
+    }
+}
+
+if (!function_exists('office_timezone')) {
+    /**
+     * Nama timezone PHP untuk satu kantor. $office = array baris tabel
+     * offices (kolom `timezone`), atau array hasil join yang memuat
+     * `office_timezone` / `timezone`. null / tanpa kolom = WIB.
+     */
+    function office_timezone($office): string
+    {
+        if (!is_array($office)) return TZ_WIB;
+        return tz_code_to_php($office['timezone'] ?? ($office['office_timezone'] ?? null));
+    }
+}
+
+if (!function_exists('office_tz_label')) {
+    /** Label WIB/WITA/WIT langsung dari kode zona kantor (kolom offices.timezone) — dipakai di tampilan admin. */
+    function office_tz_label($officeTimezone): string
+    {
+        return tz_label($officeTimezone);
+    }
+}
+
+if (!function_exists('employee_timezone')) {
+    /** Timezone karyawan = timezone kantor tempat ia terdaftar (employees.office_id). */
+    function employee_timezone($employee): string
+    {
+        static $cache = array();
+        $officeId = is_array($employee) ? (int) ($employee['office_id'] ?? 0) : (int) $employee;
+        if ($officeId <= 0) return TZ_WIB;
+        if (!isset($cache[$officeId])) {
+            $CI =& get_instance();
+            $row = $CI->db->select('timezone')->where('id', $officeId)->get('offices')->row_array();
+            $cache[$officeId] = office_timezone($row ?: null);
+        }
+        return $cache[$officeId];
+    }
+}
+
+if (!function_exists('office_ids_by_tz')) {
+    /** ID kantor dikelompokkan per zona: array('WIB' => [..], 'WITA' => [..], 'WIT' => [..]). */
+    function office_ids_by_tz(): array
+    {
+        static $map = null;
+        if ($map === null) {
+            $CI =& get_instance();
+            $map = array('WIB' => array(), 'WITA' => array(), 'WIT' => array());
+            foreach ($CI->db->select('id, timezone')->get('offices')->result_array() as $o) {
+                $map[normalize_tz_code($o['timezone'] ?? null)][] = (int) $o['id'];
+            }
+        }
+        return $map;
+    }
+}
+
+if (!function_exists('sql_office_zone_case')) {
+    /**
+     * Ekspresi SQL `CASE` yang memilih nilai per zona kantor. Dipakai
+     * query "hari ini" supaya tiap karyawan dibandingkan dengan tanggal
+     * di zona kantornya sendiri.
+     *
+     *   $officeIdCol = kolom id kantor di query (mis. 'employees.office_id')
+     *   $valueFor    = fn(string $phpTimezone): string  -> nilai literal untuk zona itu
+     *
+     * Kantor yang tidak terdaftar / zona WIB = cabang ELSE.
+     */
+    function sql_office_zone_case(string $officeIdCol, callable $valueFor): string
+    {
+        $CI =& get_instance();
+        $by = office_ids_by_tz();
+        $parts = array();
+        foreach (array('WITA', 'WIT') as $code) {
+            if (!empty($by[$code])) {
+                $parts[] = 'WHEN ' . $officeIdCol . ' IN (' . implode(',', $by[$code]) . ') THEN '
+                         . $CI->db->escape($valueFor(tz_code_to_php($code)));
+            }
+        }
+        $else = $CI->db->escape($valueFor(TZ_WIB));
+        return empty($parts) ? $else : 'CASE ' . implode(' ', $parts) . ' ELSE ' . $else . ' END';
+    }
+}
+
+if (!function_exists('now_datetime')) {
+    /** Waktu sekarang "Y-m-d H:i:s" di zona $tz (default: WIB server). */
+    function now_datetime(?string $tz = null): string
+    {
+        $dt = new DateTime('now', new DateTimeZone($tz ?: TZ_WIB));
+        return $dt->format('Y-m-d H:i:s');
     }
 }
 
 if (!function_exists('today_date')) {
-    function today_date(): string
+    /** Tanggal hari ini "Y-m-d" di zona $tz (default: WIB server). */
+    function today_date(?string $tz = null): string
     {
-        return date('Y-m-d');
+        $dt = new DateTime('now', new DateTimeZone($tz ?: TZ_WIB));
+        return $dt->format('Y-m-d');
+    }
+}
+
+if (!function_exists('normalize_client_datetime')) {
+    /**
+     * Waktu kiriman aplikasi ("Y-m-d H:i:s", seharusnya sudah jam dinding
+     * zona karyawan). Dipakai hanya bila formatnya valid DAN selisihnya
+     * dengan jam server (di zona karyawan) tidak lebih dari
+     * $toleranceSeconds. Kalau tidak (format salah, jam HP ngawur, atau
+     * aplikasi versi lama yang masih mengirim jam WIB untuk karyawan WIT),
+     * dipakai jam server di zona karyawan — jadi data yang masuk selalu
+     * konsisten dengan WIB/WIT yang benar.
+     */
+    function normalize_client_datetime($value, string $tz, int $toleranceSeconds = 600): string
+    {
+        $now = now_datetime($tz);
+        if (!is_string($value)) return $now;
+        $d = DateTime::createFromFormat('Y-m-d H:i:s', $value, new DateTimeZone($tz));
+        if ($d === false || $d->format('Y-m-d H:i:s') !== $value) return $now;
+        $diff = abs($d->getTimestamp() - (new DateTime($now, new DateTimeZone($tz)))->getTimestamp());
+        return $diff <= $toleranceSeconds ? $value : $now;
     }
 }
 

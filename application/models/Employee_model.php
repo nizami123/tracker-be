@@ -12,6 +12,11 @@ class Employee_model extends CI_Model
     public function toPublic(array $employee): array
     {
         unset($employee['password']);
+        // Zona waktu karyawan = zona kantornya (offices.timezone): WIB / WITA / WIT.
+        $tz = employee_timezone($employee);
+        $employee['timezone']       = tz_label($tz);  // "WIB" | "WITA" | "WIT"
+        $employee['timezone_id']    = $tz;            // nama timezone IANA, mis. "Asia/Makassar"
+        $employee['timezone_label'] = tz_label($tz);
         return $employee;
     }
 

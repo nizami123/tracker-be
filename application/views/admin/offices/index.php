@@ -19,6 +19,7 @@
                     <th>Radius Masuk</th>
                     <th>Radius Pulang</th>
                     <th>Interval GPS</th>
+                    <th>Zona Waktu</th>
                     <th>Status</th>
                     <th class="text-end">Aksi</th>
                 </tr>
@@ -66,6 +67,15 @@
                             <label class="form-label small fw-bold">Interval Tracking GPS (menit) *</label>
                             <input type="number" class="form-control" name="tracking_interval_minutes" id="officeTrackingInterval" value="10" min="1" required>
                             <p class="text-gray small mb-0 mt-1">Seberapa sering lokasi karyawan di kantor ini dicatat. Tiap kantor bisa beda-beda.</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Zona Waktu *</label>
+                            <select class="form-select" name="timezone" id="officeTimezone" required>
+                                <option value="WIB">WIB (GMT+7)</option>
+                                <option value="WITA">WITA (GMT+8)</option>
+                                <option value="WIT">WIT (GMT+9)</option>
+                            </select>
+                            <p class="text-gray small mb-0 mt-1">Semua karyawan &amp; driver di kantor ini otomatis memakai zona waktu ini (absen, tracking, pengajuan, pengiriman). Data yang sudah tercatat tidak ikut bergeser.</p>
                         </div>
                         <div class="col-12">
                             <label class="form-label small fw-bold">Pilih Lokasi di Peta *</label>
@@ -133,6 +143,7 @@ document.addEventListener('DOMContentLoaded', function () {
             { data: 'check_in_radius', render: d => d + ' m' },
             { data: 'check_out_radius', render: d => d + ' m' },
             { data: 'tracking_interval_seconds', render: d => Math.round((d || 600) / 60) + ' menit' },
+            { data: 'timezone', render: z => `<span class="badge-at badge-at-gray">${z || 'WIB'}</span>` },
             { data: 'status', render: s => `<span class="badge-at ${s === 'ACTIVE' ? 'badge-at-green' : 'badge-at-gray'}">${s === 'ACTIVE' ? 'Aktif' : 'Nonaktif'}</span>` },
             {
                 data: null, orderable: false, className: 'text-end',
@@ -171,6 +182,7 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('officeCheckInRadius').value = o.check_in_radius;
             document.getElementById('officeCheckOutRadius').value = o.check_out_radius;
             document.getElementById('officeTrackingInterval').value = Math.round((o.tracking_interval_seconds || 600) / 60);
+            document.getElementById('officeTimezone').value = o.timezone || 'WIB';
             document.getElementById('officeStatus').value = o.status;
             document.getElementById('officeLat').value = o.latitude;
             document.getElementById('officeLng').value = o.longitude;

@@ -37,6 +37,7 @@ class Deliveries extends MY_Controller
     {
         $driver = $this->require_driver();
         $body = $this->json_input();
+        $tz = employee_timezone($driver); // zona waktu kantor driver (WIB/WITA/WIT)
 
         $this->load->model('Delivery_model');
         $this->load->model('Office_model');
@@ -63,6 +64,20 @@ class Deliveries extends MY_Controller
             ), 422);
         }
 
+        // Tujuan pengiriman: pilih salah satu kantor terdaftar
+        // (destination_office_id), ATAU tentukan tujuan bebas sebagai
+        // pemberhentian terakhir — dua-duanya disimpan ke kolom
+        // destination_* yang sama (disalin dari data kantor kalau dari
+        // daftar), supaya validasi kedatangan & respons API tidak perlu
+        // tahu bedanya lagi setelah ini.
+        //
+        // Untuk tujuan bebas, driver CUKUP menulis alamat lengkapnya —
+        // lat/lng TIDAK wajib diisi dari HP driver lagi (tidak ada lagi
+        // geocoding di sisi Android). Titik koordinatnya (destination_
+        // latitude/longitude) baru diisi belakangan oleh admin lewat
+        // panel admin sebagai patokan radius kedatangan. Sebelum admin
+        // mengisinya, validasi jarak saat "Selesaikan Pengiriman" di
+        // method complete() otomatis dilewati (lihat komentar di sana).
         $destinationOfficeId = !empty($body['destination_office_id']) ? (int) $body['destination_office_id'] : null;
         $destinationName = trim($body['destination_name'] ?? '');
         $destinationAddress = trim($body['destination_address'] ?? '');
@@ -104,11 +119,11 @@ class Deliveries extends MY_Controller
             'destination_radius'      => $office ? (int) $office['check_in_radius'] : ($destinationRadius ?: 100),
             'notes'                   => $body['notes'] ?? null,
             'pickup_photo'            => $photoFilename,
-            'pickup_time'             => $body['timestamp'] ?? now_datetime(),
+            'pickup_time'             => normalize_client_datetime($body['timestamp'] ?? null, $tz),
             'pickup_latitude'         => $body['pickup_latitude'] ?? null,
             'pickup_longitude'        => $body['pickup_longitude'] ?? null,
             'status'                  => 'IN_PROGRESS',
-            'created_at'              => now_datetime(),
+            'created_at'              => now_datetime($tz),
         ));
 
         $this->json_response(array(
@@ -136,7 +151,8 @@ class Deliveries extends MY_Controller
         $lat = isset($body['arrival_latitude']) ? (float) $body['arrival_latitude'] : null;
         $lng = isset($body['arrival_longitude']) ? (float) $body['arrival_longitude'] : null;
         $accuracy = isset($body['accuracy']) ? (float) $body['accuracy'] : null;
-        $timestamp = $body['timestamp'] ?? now_datetime();
+        $tz = employee_timezone($driver);
+        $timestamp = normalize_client_datetime($body['timestamp'] ?? null, $tz);
         $photoBase64 = $body['arrival_photo_base64'] ?? null;
 
         if (!$deliveryId || $lat === null || $lng === null) {
@@ -191,7 +207,7 @@ class Deliveries extends MY_Controller
             'arrival_distance'  => $distance !== null ? round($distance, 2) : null,
             'arrival_notes'     => $body['notes'] ?? null,
             'status'            => 'COMPLETED',
-            'updated_at'        => now_datetime(),
+            'updated_at'        => now_datetime($tz),
         ));
 
         $this->json_response(array(

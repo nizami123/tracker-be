@@ -3,10 +3,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Attendance_model extends CI_Model
 {
-    public function getToday(int $employeeId)
+    /** $tz = zona waktu karyawan (WIB/WITA/WIT) — menentukan "hari ini" miliknya. */
+    public function getToday(int $employeeId, ?string $tz = null)
     {
         return $this->db->where('employee_id', $employeeId)
-            ->where('attendance_date', today_date())
+            ->where('attendance_date', today_date($tz))
             ->get('attendances')
             ->row_array();
     }
@@ -33,9 +34,9 @@ class Attendance_model extends CI_Model
      * (client-side, see TrackingForegroundService), and that
      * attendance row's check_out_time is simply left empty forever.
      */
-    public function alreadyCheckedInToday(int $employeeId): bool
+    public function alreadyCheckedInToday(int $employeeId, ?string $tz = null): bool
     {
-        return (bool) $this->getToday($employeeId);
+        return (bool) $this->getToday($employeeId, $tz);
     }
 
     public function insertCheckIn(array $data): int

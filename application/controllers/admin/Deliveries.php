@@ -51,7 +51,7 @@ class Deliveries extends MY_Admin_Controller
             'draw'            => $dt['draw'],
             'recordsTotal'    => $this->Admin_delivery_model->countAll($officeId),
             'recordsFiltered' => $this->Admin_delivery_model->countFiltered($filters, $officeId),
-            'data'            => $rows,
+            'data'            => $this->withTzLabel($rows, 'driver_office_timezone'),
         ));
     }
 
@@ -71,6 +71,14 @@ class Deliveries extends MY_Admin_Controller
         ));
     }
 
+    /**
+     * POST AJAX — admin melengkapi titik lat/lng untuk tujuan bebas
+     * (driver di aplikasi hanya menulis alamat lengkap, tanpa
+     * geocoding di HP). Titik ini jadi patokan radius kedatangan.
+     * Hanya berlaku untuk tujuan bebas (destination_office_id kosong)
+     * — tujuan berupa kantor terdaftar koordinatnya selalu mengikuti
+     * Master Kantor, jadi tidak bisa/perlu diubah dari sini.
+     */
     public function set_destination_point($id)
     {
         $delivery = $this->Admin_delivery_model->getById((int) $id, $this->officeScope());

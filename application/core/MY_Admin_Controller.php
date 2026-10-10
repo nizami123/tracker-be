@@ -106,6 +106,21 @@ class MY_Admin_Controller extends CI_Controller
     }
 
     /**
+     * Menambahkan kolom `tz_label` ("WIB"/"WITA"/"WIT") ke tiap baris,
+     * berdasarkan kolom zona kantor KARYAWAN pada baris itu ($tzKey, mis.
+     * `office_timezone` dari offices.timezone) — jam yang tersimpan di
+     * database memakai zona karyawan tersebut (lihat response_helper.php).
+     */
+    protected function withTzLabel(array $rows, string $tzKey = 'office_timezone'): array
+    {
+        foreach ($rows as &$r) {
+            $r['tz_label'] = office_tz_label($r[$tzKey] ?? null);
+        }
+        unset($r);
+        return $rows;
+    }
+
+    /**
      * Parses the standard DataTables server-side request params sent by
      * jQuery DataTables (draw/start/length/order/columns), used by
      * History Absensi, Pengajuan, History Pengiriman etc.

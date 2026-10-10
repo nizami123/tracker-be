@@ -33,32 +33,37 @@ class Admin_monitoring_model extends CI_Model
      */
     public function getActiveEmployees(?int $officeId): array
     {
-        list($start, $end) = day_range(today_date());
+        // Batas hari per zona kantor (WIB / WITA / WIT): tiap karyawan
+        // dibandingkan dengan awal & akhir "hari ini" di zona kantornya.
+        $startExpr = sql_office_zone_case('te.office_id', fn($tz) => day_range(today_date($tz))[0]);
+        $endExpr   = sql_office_zone_case('te.office_id', fn($tz) => day_range(today_date($tz))[1]);
 
         $sql = "
             SELECT
                 employees.id AS employee_id, 'EMPLOYEE' AS tracker_type,
                 employees.name AS person_name, employees.employee_code AS person_code,
-                offices.name AS office_name,
+                offices.name AS office_name, offices.code AS office_code, offices.timezone AS office_timezone,
                 today.started_at, today.point_count,
                 last_point.latitude AS last_lat, last_point.longitude AS last_lng,
                 last_point.accuracy AS last_accuracy, last_point.speed AS last_speed,
                 last_point.recorded_at AS last_update
             FROM (
-                SELECT employee_id,
-                       MIN(recorded_at) AS started_at,
-                       MAX(recorded_at) AS last_at,
+                SELECT t.employee_id,
+                       MIN(t.recorded_at) AS started_at,
+                       MAX(t.recorded_at) AS last_at,
                        COUNT(*) AS point_count
-                  FROM attendance_tracking
-                 WHERE recorded_at >= ? AND recorded_at < ?
-                 GROUP BY employee_id
+                  FROM attendance_tracking AS t
+                  JOIN employees AS te ON te.id = t.employee_id
+                 WHERE t.recorded_at >= $startExpr
+                   AND t.recorded_at < $endExpr
+                 GROUP BY t.employee_id
             ) AS today
             JOIN attendance_tracking AS last_point
               ON last_point.employee_id = today.employee_id
              AND last_point.recorded_at = today.last_at
             JOIN employees ON employees.id = today.employee_id
             JOIN offices ON offices.id = employees.office_id";
-        $params = array($start, $end);
+        $params = array();
 
         if ($officeId) {
             $sql .= " WHERE employees.office_id = ?";
@@ -67,7 +72,12 @@ class Admin_monitoring_model extends CI_Model
 
         $sql .= " ORDER BY today.last_at DESC";
 
-        return $this->db->query($sql, $params)->result_array();
+        $rows = $this->db->query($sql, $params)->result_array();
+        foreach ($rows as &$r) {
+            $r['tz_label'] = office_tz_label($r['office_timezone'] ?? null);
+        }
+        unset($r);
+        return $rows;
     }
 
     public function getActiveDrivers(?int $officeId): array
@@ -76,6 +86,7 @@ class Admin_monitoring_model extends CI_Model
                 vehicle_deliveries.id, 'DRIVER' as tracker_type,
                 employees.name as person_name, employees.employee_code as person_code,
                 dest.name as office_name,
+                driver_office.name as driver_office_name, driver_office.code as driver_office_code, driver_office.timezone as driver_office_timezone,
                 vehicle_deliveries.pickup_time as started_at,
                 vehicle_deliveries.status as delivery_status,
                 (SELECT COUNT(*) FROM vehicle_delivery_tracking WHERE vehicle_delivery_tracking.delivery_id = vehicle_deliveries.id) as point_count,
@@ -88,8 +99,15 @@ class Admin_monitoring_model extends CI_Model
             ->from('vehicle_deliveries')
             ->join('employees', 'employees.id = vehicle_deliveries.driver_id')
             ->join('offices as dest', 'dest.id = vehicle_deliveries.destination_office_id', 'left')
+            ->join('offices as driver_office', 'driver_office.id = employees.office_id', 'left')
             ->where_in('vehicle_deliveries.status', array('IN_PROGRESS', 'ARRIVED'));
         if ($officeId) $this->db->where('employees.office_id', $officeId);
-        return $this->db->get()->result_array();
+        $rows = $this->db->get()->result_array();
+        foreach ($rows as &$r) {
+            // Jam pengiriman memakai zona kantor DRIVER, bukan kantor tujuan.
+            $r['tz_label'] = office_tz_label($r['driver_office_timezone'] ?? null);
+        }
+        unset($r);
+        return $rows;
     }
 }

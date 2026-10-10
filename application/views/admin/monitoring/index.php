@@ -26,8 +26,8 @@
                             <tr>
                                 <td><?= html_escape($e['person_name']) ?></td>
                                 <td><?= html_escape($e['office_name']) ?></td>
-                                <td><?= $e['started_at'] ? html_escape(substr($e['started_at'], 11, 8)) : '-' ?></td>
-                                <td><?= $e['last_update'] ? html_escape(substr($e['last_update'], 11, 8)) : '-' ?></td>
+                                <td><?= $e['started_at'] ? html_escape(substr($e['started_at'], 11, 8)) . ' ' . $e['tz_label'] : '-' ?></td>
+                                <td><?= $e['last_update'] ? html_escape(substr($e['last_update'], 11, 8)) . ' ' . $e['tz_label'] : '-' ?></td>
                                 <td><a href="<?= $empDetailUrl ?>" class="btn btn-sm btn-outline-at-primary"><i class="bi bi-geo-alt"></i></a></td>
                             </tr>
                         <?php endforeach; ?>
@@ -50,8 +50,8 @@
                             <tr>
                                 <td><?= html_escape($d['person_name']) ?></td>
                                 <td><?= html_escape($d['office_name'] ?: '-') ?></td>
-                                <td><?= $d['started_at'] ? html_escape(substr($d['started_at'], 11, 8)) : '-' ?></td>
-                                <td><?= $d['last_update'] ? html_escape(substr($d['last_update'], 11, 8)) : '-' ?></td>
+                                <td><?= $d['started_at'] ? html_escape(substr($d['started_at'], 11, 8)) . ' ' . $d['tz_label'] : '-' ?></td>
+                                <td><?= $d['last_update'] ? html_escape(substr($d['last_update'], 11, 8)) . ' ' . $d['tz_label'] : '-' ?></td>
                                 <td><a href="<?= site_url('admin/delivery_tracking/detail/' . $d['id']) ?>" class="btn btn-sm btn-outline-at-primary"><i class="bi bi-geo-alt"></i></a></td>
                             </tr>
                         <?php endforeach; ?>
@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', function () {
             <div style="font-size:12.5px;">
                 <strong>${item.person_name}</strong> (${item.tracker_type === 'DRIVER' ? 'Driver' : 'Karyawan'})<br>
                 Status: ${item.tracker_type === 'DRIVER' ? (item.delivery_status || '-') : 'Tracking aktif'}<br>
-                Update terakhir: ${item.last_update || '-'}<br>
+                Update terakhir: ${item.last_update ? item.last_update + ' ' + (item.tz_label || '') : '-'}<br>
                 Akurasi: ${item.last_accuracy ? Math.round(item.last_accuracy) + ' m' : '-'}<br>
                 Kecepatan: ${item.last_speed ? parseFloat(item.last_speed).toFixed(1) + ' m/s' : '-'}
             </div>`;

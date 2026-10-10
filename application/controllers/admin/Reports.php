@@ -95,9 +95,9 @@ class Reports extends MY_Admin_Controller
             $rows,
             array(
                 'attendance_date', 'employee_name', 'employee_code', 'office_name',
-                fn($r) => $r['check_in_time'] ? substr($r['check_in_time'], 11, 8) : '-',
+                fn($r) => $r['check_in_time'] ? substr($r['check_in_time'], 11, 8) . ' ' . office_tz_label($r['office_timezone'] ?? null) : '-',
                 fn($r) => $r['check_in_distance'] !== null ? round($r['check_in_distance']) : '-',
-                fn($r) => $r['check_out_time'] ? substr($r['check_out_time'], 11, 8) : '-',
+                fn($r) => $r['check_out_time'] ? substr($r['check_out_time'], 11, 8) . ' ' . office_tz_label($r['office_timezone'] ?? null) : '-',
                 fn($r) => $r['check_out_distance'] !== null ? round($r['check_out_distance']) : '-',
                 'status',
             )
@@ -313,7 +313,7 @@ class Reports extends MY_Admin_Controller
             array('Diajukan', 'Karyawan', 'Kantor', 'Jenis', 'Tanggal', 'Status', 'Alasan'),
             $rows,
             array(
-                fn($r) => substr($r['created_at'], 0, 16),
+                fn($r) => substr($r['created_at'], 0, 16) . ' ' . office_tz_label($r['office_timezone'] ?? null),
                 'employee_name', 'office_name',
                 fn($r) => $typeLabels[$r['type']] ?? $r['type'],
                 fn($r) => $r['type'] === 'LEAVE' ? ($r['start_date'] . ' s/d ' . $r['end_date']) : $r['date'],
@@ -368,8 +368,8 @@ class Reports extends MY_Admin_Controller
                 fn($r) => $r['brand'] . ' ' . $r['vehicle_type'],
                 'engine_number', 'chassis_number',
                 fn($r) => $r['destination_office_name'] ?: $r['destination_name'] ?: '-',
-                fn($r) => $r['pickup_time'] ? substr($r['pickup_time'], 11, 8) : '-',
-                fn($r) => $r['arrival_time'] ? substr($r['arrival_time'], 11, 8) : '-',
+                fn($r) => $r['pickup_time'] ? substr($r['pickup_time'], 11, 8) . ' ' . office_tz_label($r['driver_office_timezone'] ?? null) : '-',
+                fn($r) => $r['arrival_time'] ? substr($r['arrival_time'], 11, 8) . ' ' . office_tz_label($r['driver_office_timezone'] ?? null) : '-',
                 'status',
             )
         );

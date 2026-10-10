@@ -79,7 +79,7 @@
                 <?php endif; ?>
                 <?php foreach ($rows as $r): [$label, $cls] = $statusMap[$r['status']] ?? [$r['status'], 'badge-at-gray']; ?>
                     <tr>
-                        <td><?= html_escape(substr($r['created_at'], 0, 16)) ?></td>
+                        <td><?= html_escape(substr($r['created_at'], 0, 16)) . ' ' . office_tz_label($r['office_timezone'] ?? null) ?></td>
                         <td><?= html_escape($r['employee_name']) ?></td>
                         <td><?= html_escape($r['office_name']) ?></td>
                         <td><?= $typeLabels[$r['type']] ?? html_escape($r['type']) ?></td>

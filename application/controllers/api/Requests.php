@@ -10,6 +10,7 @@ class Requests extends MY_Controller
     {
         $employee = $this->require_auth();
         $body = $this->json_input();
+        $tz = employee_timezone($employee); // zona waktu kantor karyawan (WIB/WITA/WIT)
 
         $this->load->model('Request_model');
 
@@ -63,12 +64,12 @@ class Requests extends MY_Controller
             'reason'      => $reason,
             'attachment'  => $attachmentFile,
             'status'      => $isOutsideOffice ? 'APPROVED' : 'PENDING',
-            'approved_at' => $isOutsideOffice ? now_datetime() : null,
-            'created_at'  => now_datetime(),
+            'approved_at' => $isOutsideOffice ? now_datetime($tz) : null,
+            'created_at'  => now_datetime($tz),
         ));
 
         if ($isOutsideOffice) {
-            $this->applyOutsideOfficeAttendance($employee, $latitude, $longitude, $attachmentBase64);
+            $this->applyOutsideOfficeAttendance($employee, $latitude, $longitude, $attachmentBase64, $tz);
         }
 
         $this->json_response($this->Request_model->getById($id), 201);
@@ -89,11 +90,11 @@ class Requests extends MY_Controller
      *   - Already checked in AND out today -> nothing left to touch;
      *     the request itself is still recorded/approved on its own.
      */
-    private function applyOutsideOfficeAttendance(array $employee, ?float $latitude, ?float $longitude, string $attachmentBase64): void
+    private function applyOutsideOfficeAttendance(array $employee, ?float $latitude, ?float $longitude, string $attachmentBase64, string $tz): void
     {
         $this->load->model('Attendance_model');
 
-        $today = $this->Attendance_model->getToday((int) $employee['id']);
+        $today = $this->Attendance_model->getToday((int) $employee['id'], $tz);
 
         if ($today && !empty($today['check_out_time'])) {
             return;
@@ -103,13 +104,13 @@ class Requests extends MY_Controller
 
         if ($today && !empty($today['check_in_time'])) {
             $this->Attendance_model->updateCheckOut((int) $today['id'], array(
-                'check_out_time'      => now_datetime(),
+                'check_out_time'      => now_datetime($tz),
                 'check_out_photo'     => $photoFilename,
                 'check_out_latitude'  => $latitude,
                 'check_out_longitude' => $longitude,
                 'check_out_accuracy'  => null,
                 'check_out_distance'  => null, // luar kantor — jarak dari kantor tidak relevan
-                'updated_at'          => now_datetime(),
+                'updated_at'          => now_datetime($tz),
             ));
             return;
         }
@@ -117,15 +118,15 @@ class Requests extends MY_Controller
         $this->Attendance_model->insertCheckIn(array(
             'employee_id'        => $employee['id'],
             'office_id'          => $employee['office_id'],
-            'attendance_date'    => today_date(),
-            'check_in_time'      => now_datetime(),
+            'attendance_date'    => today_date($tz),
+            'check_in_time'      => now_datetime($tz),
             'check_in_photo'     => $photoFilename,
             'check_in_latitude'  => $latitude,
             'check_in_longitude' => $longitude,
             'check_in_accuracy'  => null,
             'check_in_distance'  => null, // luar kantor — jarak dari kantor tidak relevan
             'status'             => 'PRESENT',
-            'created_at'         => now_datetime(),
+            'created_at'         => now_datetime($tz),
         ));
     }
 

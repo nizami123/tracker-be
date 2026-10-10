@@ -18,8 +18,8 @@
     <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Warna</div><div class="fw-bold"><?= html_escape($delivery['color']) ?></div></div></div>
     <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Tujuan</div><div class="fw-bold"><?= html_escape($delivery['destination_office_name'] ?: $delivery['destination_name'] ?: '-') ?></div></div></div>
     <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Alamat Tujuan</div><div class="fw-bold"><?= html_escape($delivery['destination_office_address'] ?: $delivery['destination_address'] ?: '-') ?></div></div></div>
-    <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Waktu Mulai</div><div class="fw-bold"><?= $delivery['pickup_time'] ? substr($delivery['pickup_time'], 0, 16) : '-' ?></div></div></div>
-    <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Waktu Selesai</div><div class="fw-bold"><?= $delivery['arrival_time'] ? substr($delivery['arrival_time'], 0, 16) : '-' ?></div></div></div>
+    <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Waktu Mulai</div><div class="fw-bold"><?= $delivery['pickup_time'] ? substr($delivery['pickup_time'], 0, 16) . ' ' . office_tz_label($delivery['driver_office_timezone'] ?? null) : '-' ?></div></div></div>
+    <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Waktu Selesai</div><div class="fw-bold"><?= $delivery['arrival_time'] ? substr($delivery['arrival_time'], 0, 16) . ' ' . office_tz_label($delivery['driver_office_timezone'] ?? null) : '-' ?></div></div></div>
     <div class="col-md-3 col-6"><div class="at-card py-2"><div class="text-gray small">Jarak Saat Tiba</div><div class="fw-bold"><?= $delivery['arrival_distance'] !== null ? round($delivery['arrival_distance']) . ' m' : '-' ?></div></div></div>
 </div>
 
@@ -31,7 +31,7 @@
                 <a href="<?= base_url('uploads/attendance_photos/' . $delivery['pickup_photo']) ?>" target="_blank">
                     <img src="<?= base_url('uploads/attendance_photos/' . $delivery['pickup_photo']) ?>" class="img-fluid rounded border w-100" style="max-height:320px;object-fit:cover;">
                 </a>
-                <p class="text-gray small mt-2 mb-0"><?= $delivery['pickup_time'] ? substr($delivery['pickup_time'], 0, 16) : '-' ?></p>
+                <p class="text-gray small mt-2 mb-0"><?= $delivery['pickup_time'] ? substr($delivery['pickup_time'], 0, 16) . ' ' . office_tz_label($delivery['driver_office_timezone'] ?? null) : '-' ?></p>
             <?php else: ?>
                 <p class="text-gray small mb-0">Belum ada foto.</p>
             <?php endif; ?>
@@ -44,7 +44,7 @@
                 <a href="<?= base_url('uploads/attendance_photos/' . $delivery['arrival_photo']) ?>" target="_blank">
                     <img src="<?= base_url('uploads/attendance_photos/' . $delivery['arrival_photo']) ?>" class="img-fluid rounded border w-100" style="max-height:320px;object-fit:cover;">
                 </a>
-                <p class="text-gray small mt-2 mb-0"><?= $delivery['arrival_time'] ? substr($delivery['arrival_time'], 0, 16) : '-' ?></p>
+                <p class="text-gray small mt-2 mb-0"><?= $delivery['arrival_time'] ? substr($delivery['arrival_time'], 0, 16) . ' ' . office_tz_label($delivery['driver_office_timezone'] ?? null) : '-' ?></p>
             <?php else: ?>
                 <p class="text-gray small mb-0">Kendaraan belum tiba / belum diselesaikan.</p>
             <?php endif; ?>
@@ -123,7 +123,7 @@
             <?php foreach ($timeline as $step): ?>
                 <li class="d-flex gap-3 mb-3">
                     <div class="text-gray small" style="width:70px; flex-shrink:0;">
-                        <?= $step['time'] ? html_escape(substr($step['time'], 11, 5)) : '' ?>
+                        <?= $step['time'] ? html_escape(substr($step['time'], 11, 5)) . ' ' . office_tz_label($delivery['driver_office_timezone'] ?? null) : '' ?>
                     </div>
                     <div class="d-flex flex-column align-items-center" style="width:20px; flex-shrink:0;">
                         <div style="width:10px;height:10px;border-radius:50%;background:#2F6FED;"></div>

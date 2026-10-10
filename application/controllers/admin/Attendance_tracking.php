@@ -52,7 +52,8 @@ class Attendance_tracking extends MY_Admin_Controller
             'activeMenu' => 'tracking_karyawan',
             'pageTitle'  => 'Tracking: ' . $tracking['employee_name'],
             'tracking'   => $tracking,
-            'isToday'    => $date === today_date(),
+            // "Hari ini" menurut zona kantor karyawan ini (WIB/WITA/WIT).
+            'isToday'    => $date === today_date(tz_code_to_php($tracking['office_timezone'] ?? null)),
         ));
     }
 
@@ -80,18 +81,19 @@ class Attendance_tracking extends MY_Admin_Controller
     public function latest_position($employeeId, $date = null)
     {
         $date = $this->resolveDate($date);
-        if (!$this->Admin_tracking_model->getEmployeeDetail((int) $employeeId, $date, $this->officeScope())) {
+        $detail = $this->Admin_tracking_model->getEmployeeDetail((int) $employeeId, $date, $this->officeScope());
+        if (!$detail) {
             return $this->json(array('success' => false, 'message' => 'Data tidak ditemukan'), 404);
         }
 
         $this->json(array(
             'success'   => true,
-            'is_active' => $date === today_date(),
+            'is_active' => $date === today_date(tz_code_to_php($detail['office_timezone'] ?? null)),
             'point'     => $this->Admin_tracking_model->getLatestPoint((int) $employeeId, $date),
         ));
     }
 
-    /** Kosong -> hari ini (GMT+7). Format salah -> 404, bukan diam-diam diganti. */
+    /** Kosong -> hari ini (zona server, WIB). Format salah -> 404, bukan diam-diam diganti. */
     private function resolveDate($date): string
     {
         if ($date === null || $date === '') return today_date();

@@ -21,7 +21,7 @@
     <div class="no-print"><button onclick="window.print()">Cetak / Simpan sebagai PDF</button></div>
 
     <h2>Laporan Pengiriman Kendaraan</h2>
-    <p class="sub">Periode: <?= html_escape($filters['date_from']) ?> s/d <?= html_escape($filters['date_to']) ?> — dicetak <?= date('d F Y H:i') ?></p>
+    <p class="sub">Periode: <?= html_escape($filters['date_from']) ?> s/d <?= html_escape($filters['date_to']) ?> — dicetak <?= date('d F Y H:i') ?> WIB</p>
 
     <div class="summary">
         <div>Jumlah Pengiriman<strong><?= $summary['total'] ?></strong></div>
@@ -39,8 +39,8 @@
                     <td><?= html_escape($r['driver_name']) ?></td>
                     <td><?= html_escape($r['brand'] . ' ' . $r['vehicle_type']) ?></td>
                     <td><?= html_escape($r['destination_office_name'] ?: $r['destination_name'] ?: '-') ?></td>
-                    <td><?= $r['pickup_time'] ? html_escape(substr($r['pickup_time'], 11, 8)) : '-' ?></td>
-                    <td><?= $r['arrival_time'] ? html_escape(substr($r['arrival_time'], 11, 8)) : '-' ?></td>
+                    <td><?= $r['pickup_time'] ? html_escape(substr($r['pickup_time'], 11, 8)) . ' ' . office_tz_label($r['driver_office_timezone'] ?? null) : '-' ?></td>
+                    <td><?= $r['arrival_time'] ? html_escape(substr($r['arrival_time'], 11, 8)) . ' ' . office_tz_label($r['driver_office_timezone'] ?? null) : '-' ?></td>
                     <td><?= html_escape($r['status']) ?></td>
                 </tr>
             <?php endforeach; ?>
