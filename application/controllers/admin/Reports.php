@@ -235,8 +235,21 @@ class Reports extends MY_Admin_Controller
                 elseif ($out) $cell['time_label'] = '- -' . $out;
                 else $cell['time_label'] = '-';
 
-                $cell['type'] = ($a['status'] === 'LATE') ? 'telat' : 'hadir';
-                if ($cell['type'] === 'telat') $telat++; else $hadir++;
+                $jamMasukBatas = '08:00:00';
+
+                $jamMasuk = !empty($a['check_in_time'])
+                    ? date('H:i:s', strtotime($a['check_in_time']))
+                    : null;
+
+                $cell['type'] = ($jamMasuk !== null && $jamMasuk > $jamMasukBatas)
+                    ? 'telat'
+                    : 'hadir';
+
+                if ($cell['type'] === 'telat') {
+                    $telat++;
+                } else {
+                    $hadir++;
+                }
             } elseif (isset($leaveMap[$date])) {
                 $cell['type'] = 'izin';
                 $izinCuti++;
