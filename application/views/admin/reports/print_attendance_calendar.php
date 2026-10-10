@@ -35,9 +35,9 @@
         table.cal-table th { background: #f1f3f5; font-size: 10px; padding: 4px 2px; }
         table.cal-table td { height: 46px; width: 14.28%; }
 
-        .cal-daynum { font-weight: bold; font-size: 11px; }
-        .cal-time { font-size: 9.5px; margin-top: 2px; }
-        .cal-label { font-size: 9px; margin-top: 1px; font-weight: bold; }
+        .cal-daynum { font-weight: bold; font-size: 16px; }
+        .cal-time { font-size: 11px; margin-top: 2px; }
+        .cal-label { font-size: 11px; margin-top: 1px; font-weight: bold; }
         .cal-holiday-name { font-size: 8px; margin-top: 1px; }
 
         td.cal-sunday .cal-daynum { color: #c0392b; }
