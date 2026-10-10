@@ -235,7 +235,7 @@ class Reports extends MY_Admin_Controller
                 elseif ($out) $cell['time_label'] = '- -' . $out;
                 else $cell['time_label'] = '-';
 
-                $jamMasukBatas = '08:00:00';
+                $jamMasukBatas = '08:01:00';
 
                 $jamMasuk = !empty($a['check_in_time'])
                     ? date('H:i:s', strtotime($a['check_in_time']))
