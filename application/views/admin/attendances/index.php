@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // disimpan apa adanya oleh server, URL lengkap dibangun di sini.
     function photoThumb(filename, label) {
         if (!filename) return '';
-        const url = ADMIN_BASE_URL + 'uploads/attendance_photos/' + filename;
+        const url = ATTENDANCE_PHOTO_BASE_URL + encodeURIComponent(filename);
         return `<a href="${url}" target="_blank" title="Foto ${label}">
             <img src="${url}" alt="Foto ${label}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;" class="border">
         </a>`;

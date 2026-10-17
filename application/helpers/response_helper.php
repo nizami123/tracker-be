@@ -219,11 +219,112 @@ if (!function_exists('day_range')) {
     }
 }
 
+if (!function_exists('photo_storage_config')) {
+    /** Ambil satu nilai dari application/config/photo_storage.php. */
+    function photo_storage_config(string $key, $default = null)
+    {
+        $CI =& get_instance();
+        $CI->config->load('photo_storage', TRUE, TRUE);
+        $value = $CI->config->item($key, 'photo_storage');
+        return $value === null ? $default : $value;
+    }
+}
+
+if (!function_exists('attendance_photo_base_url')) {
+    /** Base URL folder attendance_photos di VPS foto (selalu diakhiri "/"). */
+    function attendance_photo_base_url(): string
+    {
+        return rtrim((string) photo_storage_config('photo_base_url', ''), '/') . '/';
+    }
+}
+
+if (!function_exists('attendance_photo_url')) {
+    /** URL lengkap sebuah foto di VPS foto dari nama filenya. */
+    function attendance_photo_url(string $filename): string
+    {
+        return attendance_photo_base_url() . rawurlencode($filename);
+    }
+}
+
+if (!function_exists('request_attachment_base_url')) {
+    /** Base URL folder request_attachments di VPS foto (selalu diakhiri "/"). */
+    function request_attachment_base_url(): string
+    {
+        return rtrim((string) photo_storage_config('attachment_base_url', ''), '/') . '/';
+    }
+}
+
+if (!function_exists('upload_file_to_remote')) {
+    /**
+     * Kirim isi file (binary) ke skrip penerima di VPS foto.
+     * Body = binary mentah; nama file & folder tujuan lewat header.
+     * $folder: 'attendance_photos' atau 'request_attachments'.
+     * Mengembalikan true jika VPS foto membalas HTTP 200/201.
+     */
+    function upload_file_to_remote(string $binary, string $filename, string $folder): bool
+    {
+        $url = (string) photo_storage_config('photo_upload_url', '');
+        if ($url === '') {
+            log_message('error', 'photo_storage: photo_upload_url belum diisi');
+            return false;
+        }
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, array(
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $binary,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT        => (int) photo_storage_config('photo_upload_timeout', 20),
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_HTTPHEADER     => array(
+                'Content-Type: application/octet-stream',
+                'X-Folder: ' . $folder,
+                'X-Filename: ' . $filename,
+            ),
+        ));
+        $response = curl_exec($ch);
+        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $err = curl_error($ch);
+        curl_close($ch);
+
+        if ($response === false || ($code !== 200 && $code !== 201)) {
+            log_message('error', 'photo_storage: upload gagal (' . $folder . '/' . $filename . ') HTTP ' . $code . ' ' . $err . ' ' . substr((string) $response, 0, 200));
+            return false;
+        }
+        return true;
+    }
+}
+
+if (!function_exists('store_file_remote_or_local')) {
+    /** Kirim ke VPS foto; jika gagal & fallback aktif, simpan lokal di uploads/<folder>/. */
+    function store_file_remote_or_local(string $data, string $filename, string $folder): ?string
+    {
+        if (upload_file_to_remote($data, $filename, $folder)) {
+            return $filename;
+        }
+
+        if (photo_storage_config('photo_fallback_local', true)) {
+            $dir = FCPATH . 'uploads/' . $folder . '/';
+            if (!is_dir($dir)) {
+                mkdir($dir, 0755, true);
+            }
+            if (file_put_contents($dir . $filename, $data) !== false) {
+                log_message('error', 'photo_storage: ' . $folder . '/' . $filename . ' disimpan lokal (fallback), perlu dipindah ke VPS foto');
+                return $filename;
+            }
+        }
+
+        return null;
+    }
+}
+
 if (!function_exists('save_base64_photo')) {
     /**
-     * Decodes a base64 JPEG string from the Android app and saves it
-     * under uploads/attendance_photos/. Returns the stored filename
-     * (relative), or null on failure.
+     * Decodes a base64 JPEG string from the Android app and mengirimnya ke
+     * VPS foto folder attendance_photos/. Returns the stored filename
+     * (relative — URL lengkap lewat attendance_photo_url()), or null on failure.
      */
     function save_base64_photo(string $base64, string $prefix): ?string
     {
@@ -232,19 +333,9 @@ if (!function_exists('save_base64_photo')) {
         $data = base64_decode($base64, true);
         if ($data === false) return null;
 
-        $dir = FCPATH . 'uploads/attendance_photos/';
-        if (!is_dir($dir)) {
-            mkdir($dir, 0755, true);
-        }
-
         $filename = $prefix . '_' . date('Ymd_His') . '_' . substr(md5(uniqid('', true)), 0, 8) . '.jpg';
-        $path = $dir . $filename;
 
-        if (file_put_contents($path, $data) === false) {
-            return null;
-        }
-
-        return $filename;
+        return store_file_remote_or_local($data, $filename, 'attendance_photos');
     }
 }
 
@@ -253,7 +344,7 @@ if (!function_exists('save_base64_attachment')) {
      * Decodes a base64 file (image OR PDF — used by the Lampiran field
      * on Pengajuan, which lets the person either pick an existing file
      * or take a photo with the camera) and saves it under
-     * uploads/request_attachments/. Only jpg/jpeg/png/pdf extensions are
+     * VPS foto folder request_attachments/. Only jpg/jpeg/png/pdf extensions are
      * kept from the original filename; anything else (or no filename)
      * falls back to .jpg since the camera path always sends a JPEG.
      * Returns the stored filename (relative), or null on failure.
@@ -274,18 +365,18 @@ if (!function_exists('save_base64_attachment')) {
             }
         }
 
-        $dir = FCPATH . 'uploads/request_attachments/';
-        if (!is_dir($dir)) {
-            mkdir($dir, 0755, true);
+        // Ekstensi disesuaikan dengan isi file sebenarnya (VPS foto memeriksa
+        // kecocokan isi vs ekstensi).
+        if (substr($data, 0, 3) === "\xFF\xD8\xFF") {
+            $ext = ($ext === 'jpeg') ? 'jpeg' : 'jpg';
+        } elseif (substr($data, 0, 8) === "\x89PNG\r\n\x1a\n") {
+            $ext = 'png';
+        } elseif (substr($data, 0, 5) === '%PDF-') {
+            $ext = 'pdf';
         }
 
         $filename = $prefix . '_' . date('Ymd_His') . '_' . substr(md5(uniqid('', true)), 0, 8) . '.' . $ext;
-        $path = $dir . $filename;
 
-        if (file_put_contents($path, $data) === false) {
-            return null;
-        }
-
-        return $filename;
+        return store_file_remote_or_local($data, $filename, 'request_attachments');
     }
 }

@@ -181,7 +181,7 @@ document.addEventListener('DOMContentLoaded', function () {
         fetch(ADMIN_BASE_URL + 'admin/requests/detail/' + id).then(r => r.json()).then(res => {
             if (!res.success) { document.getElementById('detailBody').innerHTML = `<p class="text-danger">${res.message}</p>`; return; }
             const r = res.data;
-            const attachUrl = r.attachment ? ADMIN_BASE_URL + 'uploads/request_attachments/' + r.attachment : null;
+            const attachUrl = r.attachment ? REQUEST_ATTACHMENT_BASE_URL + encodeURIComponent(r.attachment) : null;
 
             let attachHtml = '<p class="text-gray small">Tidak ada lampiran.</p>';
             if (attachUrl) {
