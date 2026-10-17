@@ -28,8 +28,8 @@
         <div class="at-card h-100">
             <h6 class="fw-bold mb-2"><i class="bi bi-camera me-1"></i>Foto Saat Pengambilan</h6>
             <?php if (!empty($delivery['pickup_photo'])): ?>
-                <a href="<?= attendance_photo_url($delivery['pickup_photo']) ?>" target="_blank">
-                    <img src="<?= attendance_photo_url($delivery['pickup_photo']) ?>" class="img-fluid rounded border w-100" style="max-height:320px;object-fit:cover;">
+                <a href="<?= base_url('uploads/attendance_photos/' . $delivery['pickup_photo']) ?>" target="_blank">
+                    <img src="<?= base_url('uploads/attendance_photos/' . $delivery['pickup_photo']) ?>" class="img-fluid rounded border w-100" style="max-height:320px;object-fit:cover;">
                 </a>
                 <p class="text-gray small mt-2 mb-0"><?= $delivery['pickup_time'] ? substr($delivery['pickup_time'], 0, 16) . ' ' . office_tz_label($delivery['driver_office_timezone'] ?? null) : '-' ?></p>
             <?php else: ?>
@@ -41,8 +41,8 @@
         <div class="at-card h-100">
             <h6 class="fw-bold mb-2"><i class="bi bi-camera-fill me-1"></i>Foto Saat Tiba</h6>
             <?php if (!empty($delivery['arrival_photo'])): ?>
-                <a href="<?= attendance_photo_url($delivery['arrival_photo']) ?>" target="_blank">
-                    <img src="<?= attendance_photo_url($delivery['arrival_photo']) ?>" class="img-fluid rounded border w-100" style="max-height:320px;object-fit:cover;">
+                <a href="<?= base_url('uploads/attendance_photos/' . $delivery['arrival_photo']) ?>" target="_blank">
+                    <img src="<?= base_url('uploads/attendance_photos/' . $delivery['arrival_photo']) ?>" class="img-fluid rounded border w-100" style="max-height:320px;object-fit:cover;">
                 </a>
                 <p class="text-gray small mt-2 mb-0"><?= $delivery['arrival_time'] ? substr($delivery['arrival_time'], 0, 16) . ' ' . office_tz_label($delivery['driver_office_timezone'] ?? null) : '-' ?></p>
             <?php else: ?>
