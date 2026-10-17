@@ -231,7 +231,7 @@ if (!function_exists('photo_storage_config')) {
 }
 
 if (!function_exists('attendance_photo_base_url')) {
-    /** Base URL folder attendance_photos di VPS foto (selalu diakhiri "/"). */
+    /** Base URL folder attendance_photos di hosting foto (selalu diakhiri "/"). */
     function attendance_photo_base_url(): string
     {
         return rtrim((string) photo_storage_config('photo_base_url', ''), '/') . '/';
@@ -239,7 +239,7 @@ if (!function_exists('attendance_photo_base_url')) {
 }
 
 if (!function_exists('attendance_photo_url')) {
-    /** URL lengkap sebuah foto di VPS foto dari nama filenya. */
+    /** URL lengkap sebuah foto di hosting foto dari nama filenya. */
     function attendance_photo_url(string $filename): string
     {
         return attendance_photo_base_url() . rawurlencode($filename);
@@ -247,7 +247,7 @@ if (!function_exists('attendance_photo_url')) {
 }
 
 if (!function_exists('request_attachment_base_url')) {
-    /** Base URL folder request_attachments di VPS foto (selalu diakhiri "/"). */
+    /** Base URL folder request_attachments di hosting foto (selalu diakhiri "/"). */
     function request_attachment_base_url(): string
     {
         return rtrim((string) photo_storage_config('attachment_base_url', ''), '/') . '/';
@@ -256,10 +256,10 @@ if (!function_exists('request_attachment_base_url')) {
 
 if (!function_exists('upload_file_to_remote')) {
     /**
-     * Kirim isi file (binary) ke skrip penerima di VPS foto.
+     * Kirim isi file (binary) ke skrip penerima di hosting foto.
      * Body = binary mentah; nama file & folder tujuan lewat header.
      * $folder: 'attendance_photos' atau 'request_attachments'.
-     * Mengembalikan true jika VPS foto membalas HTTP 200/201.
+     * Mengembalikan true jika hosting foto membalas HTTP 200/201.
      */
     function upload_file_to_remote(string $binary, string $filename, string $folder): bool
     {
@@ -298,7 +298,7 @@ if (!function_exists('upload_file_to_remote')) {
 }
 
 if (!function_exists('store_file_remote_or_local')) {
-    /** Kirim ke VPS foto; jika gagal & fallback aktif, simpan lokal di uploads/<folder>/. */
+    /** Kirim ke hosting foto; jika gagal & fallback aktif, simpan lokal di uploads/<folder>/. */
     function store_file_remote_or_local(string $data, string $filename, string $folder): ?string
     {
         if (upload_file_to_remote($data, $filename, $folder)) {
@@ -311,7 +311,7 @@ if (!function_exists('store_file_remote_or_local')) {
                 mkdir($dir, 0755, true);
             }
             if (file_put_contents($dir . $filename, $data) !== false) {
-                log_message('error', 'photo_storage: ' . $folder . '/' . $filename . ' disimpan lokal (fallback), perlu dipindah ke VPS foto');
+                log_message('error', 'photo_storage: ' . $folder . '/' . $filename . ' disimpan lokal (fallback), perlu dipindah ke hosting foto');
                 return $filename;
             }
         }
@@ -323,7 +323,7 @@ if (!function_exists('store_file_remote_or_local')) {
 if (!function_exists('save_base64_photo')) {
     /**
      * Decodes a base64 JPEG string from the Android app and mengirimnya ke
-     * VPS foto folder attendance_photos/. Returns the stored filename
+     * hosting foto folder attendance_photos/. Returns the stored filename
      * (relative — URL lengkap lewat attendance_photo_url()), or null on failure.
      */
     function save_base64_photo(string $base64, string $prefix): ?string
@@ -344,7 +344,7 @@ if (!function_exists('save_base64_attachment')) {
      * Decodes a base64 file (image OR PDF — used by the Lampiran field
      * on Pengajuan, which lets the person either pick an existing file
      * or take a photo with the camera) and saves it under
-     * VPS foto folder request_attachments/. Only jpg/jpeg/png/pdf extensions are
+     * hosting foto folder request_attachments/. Only jpg/jpeg/png/pdf extensions are
      * kept from the original filename; anything else (or no filename)
      * falls back to .jpg since the camera path always sends a JPEG.
      * Returns the stored filename (relative), or null on failure.
@@ -365,7 +365,7 @@ if (!function_exists('save_base64_attachment')) {
             }
         }
 
-        // Ekstensi disesuaikan dengan isi file sebenarnya (VPS foto memeriksa
+        // Ekstensi disesuaikan dengan isi file sebenarnya (hosting foto memeriksa
         // kecocokan isi vs ekstensi).
         if (substr($data, 0, 3) === "\xFF\xD8\xFF") {
             $ext = ($ext === 'jpeg') ? 'jpeg' : 'jpg';
