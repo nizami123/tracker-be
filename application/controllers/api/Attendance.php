@@ -6,7 +6,7 @@ require_once APPPATH . 'core/MY_Controller.php';
 class Attendance extends MY_Controller
 {
     /**
-     * POST /api/attendance/check-ins
+     * POST /api/attendance/check-in
      *
      * This is the authoritative validation described in spec section 7.
      * Absensi hanya mencatat ke tabel attendances — tidak menyentuh
