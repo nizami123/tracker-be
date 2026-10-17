@@ -19,8 +19,10 @@ $config['attachment_base_url'] = 'https://samsu.samuderasuri.com/tracker/request
 // Endpoint skrip penerima upload di hosting foto (file: vps_foto/upload.php).
 $config['photo_upload_url'] = 'https://samsu.samuderasuri.com/tracker/upload.php';
 
-// Timeout cURL (detik).
-$config['photo_upload_timeout'] = 20;
+// Timeout cURL (detik). Upload berjalan di dalam request API, jadi total waktunya
+// harus lebih kecil dari timeout HTTP di aplikasi Android.
+$config['photo_upload_connect_timeout'] = 5;
+$config['photo_upload_timeout'] = 15;
 
 // Jika upload ke hosting foto gagal, simpan sementara di folder uploads/ lokal
 // agar file tidak hilang (bisa dipindah manual ke hosting foto nanti).

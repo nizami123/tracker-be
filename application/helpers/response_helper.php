@@ -269,29 +269,37 @@ if (!function_exists('upload_file_to_remote')) {
             return false;
         }
 
+        $t0 = microtime(true);
         $ch = curl_init($url);
         curl_setopt_array($ch, array(
             CURLOPT_POST           => true,
             CURLOPT_POSTFIELDS     => $binary,
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CONNECTTIMEOUT => 10,
-            CURLOPT_TIMEOUT        => (int) photo_storage_config('photo_upload_timeout', 20),
+            CURLOPT_CONNECTTIMEOUT => (int) photo_storage_config('photo_upload_connect_timeout', 5),
+            CURLOPT_TIMEOUT        => (int) photo_storage_config('photo_upload_timeout', 15),
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_HTTPHEADER     => array(
                 'Content-Type: application/octet-stream',
                 'X-Folder: ' . $folder,
                 'X-Filename: ' . $filename,
+                'Expect:', // matikan "100-continue": beberapa hosting/proxy tidak membalasnya -> request menggantung
             ),
         ));
         $response = curl_exec($ch);
         $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $err = curl_error($ch);
         curl_close($ch);
+        $elapsed = round(microtime(true) - $t0, 2);
 
         if ($response === false || ($code !== 200 && $code !== 201)) {
-            log_message('error', 'photo_storage: upload gagal (' . $folder . '/' . $filename . ') HTTP ' . $code . ' ' . $err . ' ' . substr((string) $response, 0, 200));
+            log_message('error', 'photo_storage: upload gagal (' . $folder . '/' . $filename . ', ' . strlen($binary) . ' byte, ' . $elapsed . ' dtk) HTTP ' . $code . ' ' . $err . ' ' . substr((string) $response, 0, 200));
             return false;
+        }
+
+        // Catat upload yang lambat supaya mudah dicari kenapa aplikasi timeout.
+        if ($elapsed > 3) {
+            log_message('error', 'photo_storage: upload LAMBAT (' . $folder . '/' . $filename . ', ' . strlen($binary) . ' byte, ' . $elapsed . ' dtk)');
         }
         return true;
     }
