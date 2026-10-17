@@ -291,12 +291,6 @@ if (!function_exists('upload_file_to_remote')) {
         $err = curl_error($ch);
         curl_close($ch);
         $elapsed = round(microtime(true) - $t0, 2);
-        $GLOBALS['photo_upload_debug'] = array(
-            'http'       => $code,
-            'curl_error' => $err,
-            'detik'      => $elapsed,
-            'balasan'    => substr((string) $response, 0, 200),
-        );
 
         if ($response === false || ($code !== 200 && $code !== 201)) {
             log_message('error', 'photo_storage: upload gagal (' . $folder . '/' . $filename . ', ' . strlen($binary) . ' byte, ' . $elapsed . ' dtk) HTTP ' . $code . ' ' . $err . ' ' . substr((string) $response, 0, 200));

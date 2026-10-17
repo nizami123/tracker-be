@@ -14,7 +14,9 @@
 <!-- Chart.js (dashboard + laporan charts) -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 
-<script>window.ADMIN_BASE_URL = <?= json_encode(base_url()) ?>;</script>
+<script>window.ADMIN_BASE_URL = <?= json_encode(base_url()) ?>;
+window.ATTENDANCE_PHOTO_BASE_URL = <?= json_encode(attendance_photo_base_url()) ?>;
+window.REQUEST_ATTACHMENT_BASE_URL = <?= json_encode(request_attachment_base_url()) ?>;</script>
 <script src="<?= base_url('assets/admin/js/admin.js') ?>"></script>
 
 <?php if (isset($extraScript)): ?>
