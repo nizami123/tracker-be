@@ -13,6 +13,7 @@
         <table class="table table-at table-hover align-middle w-100" id="tblOffices">
             <thead>
                 <tr>
+                    <th>Kode</th>
                     <th>Nama Kantor</th>
                     <th>Alamat</th>
                     <th>Radius Masuk</th>
@@ -136,6 +137,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const table = $('#tblOffices').DataTable({
         ajax: { url: ADMIN_BASE_URL + 'admin/offices/list_data', dataSrc: 'data' },
         columns: [
+            { data: 'code' },
             { data: 'name' },
             { data: 'address', render: d => d || '-' },
             { data: 'check_in_radius', render: d => d + ' m' },
