@@ -5,17 +5,6 @@ require_once APPPATH . 'core/MY_Controller.php';
 
 class Attendance extends MY_Controller
 {
-    /**
-     * POST /api/attendance/check-in
-     *
-     * This is the authoritative validation described in spec section 7.
-     * Absensi hanya mencatat ke tabel attendances — tidak menyentuh
-     * tracking (attendance_tracking) sama sekali.
-     * The employee_id in the request body is NEVER trusted directly —
-     * it must match the authenticated token's employee. office_id and
-     * its coordinates/radius are always looked up server-side from that
-     * employee's record, never accepted from the client.
-     */
     public function check_in()
     {
         $employee = $this->require_auth();
