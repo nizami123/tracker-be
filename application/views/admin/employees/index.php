@@ -167,7 +167,7 @@ document.addEventListener('DOMContentLoaded', function () {
             {
                 data: null, orderable: false, className: 'text-end',
                 render: row => `
-                    <button class="btn btn-sm btn-outline-primary btn-sync" data-id="${row.id}" title="Sync absensi dari sistem lama"><i class="bi bi-arrow-repeat"></i></button>
+                    <button class="btn btn-sm ${row.device === 'ANDROID' ? 'btn-outline-primary' : 'btn-outline-danger'} btn-sync" data-id="${row.id}" title="Sync absensi dari sistem lama"><i class="bi bi-arrow-repeat"></i></button>
                     <button class="btn btn-sm btn-outline-secondary btn-edit" data-id="${row.id}"><i class="bi bi-pencil"></i></button>
                     <button class="btn btn-sm btn-outline-warning btn-toggle" data-id="${row.id}"><i class="bi bi-power"></i></button>
                     <button class="btn btn-sm btn-outline-danger btn-delete" data-id="${row.id}"><i class="bi bi-trash"></i></button>

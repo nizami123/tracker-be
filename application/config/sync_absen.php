@@ -1,11 +1,6 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-/**
- * Sync data absensi dari sistem lama (api_absen.php) ke tabel `attendances`.
- * Dipakai oleh tombol "Sync" di halaman Master Karyawan.
- */
-
 // URL API sistem lama (param yang dikirim: no_hp & bulan=YYYY-MM)
 $config['sync_api_url'] = 'https://samsu.samuderasuri.com/api_absen.php';
 
