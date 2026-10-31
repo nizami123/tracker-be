@@ -75,14 +75,6 @@
                     <table>
                         <tr><td class="label">Nama</td><td>: <?= html_escape($emp['name']) ?></td></tr>
                         <tr><td class="label">Kantor</td><td>: <?= html_escape($emp['office_name']) ?></td></tr>
-                        <tr><td class="label">Zona Waktu</td><td>: <?= office_tz_label($emp['office_timezone'] ?? null) ?></td></tr>
-                        <?php if (!empty($emp['nip'])): ?>
-                            <tr><td class="label">NIP/NIK</td><td>: <?= html_escape($emp['nip']) ?></td></tr>
-                        <?php endif; ?>
-                        <tr><td class="label">Kode Pegawai</td><td>: <?= html_escape($emp['employee_code']) ?></td></tr>
-                        <?php if (!empty($emp['position'])): ?>
-                            <tr><td class="label">Jabatan</td><td>: <?= html_escape($emp['position']) ?></td></tr>
-                        <?php endif; ?>
                     </table>
                 </div>
             </div>
