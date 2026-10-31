@@ -70,4 +70,27 @@ class Admin_attendance_model extends CI_Model
         if ($officeId) $q->where('office_id', $officeId);
         return $q->get('employees')->result_array();
     }
+
+    // ------------------------------------------------------------------
+    // Dipakai oleh fitur Sync (Employees::sync)
+    // ------------------------------------------------------------------
+
+    public function getByEmployeeDate(int $employeeId, string $date)
+    {
+        return $this->db->where('employee_id', $employeeId)
+            ->where('attendance_date', $date)
+            ->get('attendances')
+            ->row_array();
+    }
+
+    public function insertSynced(array $data): int
+    {
+        $this->db->insert('attendances', $data);
+        return (int) $this->db->insert_id();
+    }
+
+    public function updateSynced(int $id, array $data): void
+    {
+        $this->db->where('id', $id)->update('attendances', $data);
+    }
 }

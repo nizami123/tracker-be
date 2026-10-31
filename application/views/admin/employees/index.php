@@ -96,6 +96,52 @@
     </div>
 </div>
 
+<div class="modal fade" id="syncModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="syncForm">
+                <div class="modal-header">
+                    <h5 class="modal-title">Sync Absensi</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small mb-3">Karyawan: <strong id="syncEmpName">-</strong></p>
+                    <input type="hidden" id="syncEmpId">
+                    <div class="row g-3">
+                        <div class="col-7">
+                            <label class="form-label small fw-bold">Bulan</label>
+                            <select class="form-select" id="syncBulan" name="bulan">
+                                <option value="1">Januari</option>
+                                <option value="2">Februari</option>
+                                <option value="3">Maret</option>
+                                <option value="4">April</option>
+                                <option value="5">Mei</option>
+                                <option value="6">Juni</option>
+                                <option value="7">Juli</option>
+                                <option value="8">Agustus</option>
+                                <option value="9">September</option>
+                                <option value="10">Oktober</option>
+                                <option value="11">November</option>
+                                <option value="12">Desember</option>
+                            </select>
+                        </div>
+                        <div class="col-5">
+                            <label class="form-label small fw-bold">Tahun</label>
+                            <input type="number" class="form-control" id="syncTahun" name="tahun" min="2000" max="2100">
+                        </div>
+                    </div>
+                    <p class="text-gray small mt-3 mb-0">Data yang sudah ada tidak ditimpa; hanya jam masuk/pulang yang masih kosong yang dilengkapi.</p>
+                    <div id="syncResult" class="alert py-2 small mt-3 mb-0 d-none"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Tutup</button>
+                    <button type="submit" class="btn btn-at-primary" id="btnSyncRun"><i class="bi bi-arrow-repeat me-1"></i>Sync</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const offices = <?= json_encode($offices) ?>;
@@ -121,6 +167,7 @@ document.addEventListener('DOMContentLoaded', function () {
             {
                 data: null, orderable: false, className: 'text-end',
                 render: row => `
+                    <button class="btn btn-sm btn-outline-primary btn-sync" data-id="${row.id}" title="Sync absensi dari sistem lama"><i class="bi bi-arrow-repeat"></i></button>
                     <button class="btn btn-sm btn-outline-secondary btn-edit" data-id="${row.id}"><i class="bi bi-pencil"></i></button>
                     <button class="btn btn-sm btn-outline-warning btn-toggle" data-id="${row.id}"><i class="bi bi-power"></i></button>
                     <button class="btn btn-sm btn-outline-danger btn-delete" data-id="${row.id}"><i class="bi bi-trash"></i></button>
@@ -176,6 +223,53 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(r => r.json()).then(res => {
                 if (res.success) table.ajax.reload(null, false);
                 else alert(res.message);
+            });
+    });
+
+
+    // ---- Sync absensi dari sistem lama ----
+    const syncModal = new bootstrap.Modal(document.getElementById('syncModal'));
+    const syncResult = document.getElementById('syncResult');
+
+    $('#tblEmployees tbody').on('click', '.btn-sync', function () {
+        const now = new Date();
+        document.getElementById('syncEmpId').value = $(this).data('id');
+        document.getElementById('syncEmpName').textContent = table.row($(this).closest('tr')).data().name;
+        document.getElementById('syncBulan').value = String(now.getMonth() + 1); // default bulan sekarang
+        document.getElementById('syncTahun').value = now.getFullYear();
+        syncResult.classList.add('d-none');
+        document.getElementById('btnSyncRun').disabled = false;
+        syncModal.show();
+    });
+
+    document.getElementById('syncForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const btn = document.getElementById('btnSyncRun');
+        const id = document.getElementById('syncEmpId').value;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Menyinkronkan...';
+        syncResult.classList.add('d-none');
+
+        fetch(ADMIN_BASE_URL + 'admin/employees/sync/' + id, { method: 'POST', body: new FormData(this) })
+            .then(r => r.json().catch(() => ({ success: false, message: 'Respons server tidak valid' })))
+            .then(res => {
+                syncResult.className = 'alert py-2 small mt-3 mb-0 ' + (res.success ? 'alert-success' : 'alert-danger');
+                if (res.success) {
+                    const s = res.summary;
+                    syncResult.innerHTML = '<strong>' + res.message + '</strong><br>' +
+                        'Ditambahkan: ' + s.inserted + ' &middot; Dilengkapi: ' + s.updated +
+                        ' &middot; Dilewati (sudah ada): ' + s.skipped + ' &middot; Tanpa data: ' + s.empty;
+                } else {
+                    syncResult.textContent = res.message || 'Sync gagal';
+                }
+            })
+            .catch(() => {
+                syncResult.className = 'alert alert-danger py-2 small mt-3 mb-0';
+                syncResult.textContent = 'Tidak bisa terhubung ke server';
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Sync';
             });
     });
 
