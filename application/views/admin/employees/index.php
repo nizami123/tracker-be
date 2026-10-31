@@ -11,7 +11,6 @@
         <table class="table table-at table-hover align-middle w-100" id="tblEmployees">
             <thead>
                 <tr>
-                    <th>Kode</th>
                     <th>Nama</th>
                     <th>Email</th>
                     <th>Kantor</th>
@@ -157,7 +156,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const table = $('#tblEmployees').DataTable({
         ajax: { url: ADMIN_BASE_URL + 'admin/employees/list_data', dataSrc: 'data' },
         columns: [
-            { data: 'employee_code' },
             { data: 'name' },
             { data: 'email', render: d => d || '-' },
             { data: 'office_name', render: d => d || '-' },
