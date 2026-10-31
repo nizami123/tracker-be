@@ -35,12 +35,12 @@
         table.cal-table th, table.cal-table td {
             border: 1px solid #999; padding: 1px; text-align: center; vertical-align: top;
         }
-        table.cal-table th { background: #f1f3f5; font-size: 8px; padding: 2px 1px; }
+        table.cal-table th { background: #f1f3f5; font-size: 12px; padding: 2px 1px; }
         table.cal-table td { height: 11.2mm; width: 14.28%; line-height: 1.1; }
 
-        .cal-daynum { font-weight: bold; font-size: 11px; }
-        .cal-time { font-size: 8px; margin-top: 1px; }
-        .cal-label { font-size: 8px; margin-top: 1px; font-weight: bold; }
+        .cal-daynum { font-weight: bold; font-size: 13px; }
+        .cal-time { font-size: 11px; margin-top: 1px; }
+        .cal-label { font-size: 11px; margin-top: 1px; font-weight: bold; }
         .cal-holiday-name { font-size: 6px; margin-top: 1px; line-height: 1; }
 
         td.cal-sunday .cal-daynum { color: #c0392b; }
