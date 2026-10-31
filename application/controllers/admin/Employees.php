@@ -328,6 +328,6 @@ class Employees extends MY_Admin_Controller
         )->row_array();
 
         $next = ((int) ($row['max_no'] ?? 0)) + 1;
-        return $prefix . str_pad((string) $next, 4, '0', STR_PAD_LEFT);
+        return $prefix . str_pad((string) $next, 3, '0', STR_PAD_LEFT);
     }
 }
