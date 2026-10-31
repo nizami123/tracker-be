@@ -60,7 +60,7 @@ class Employees extends MY_Admin_Controller
     public function save()
     {
         $id = (int) $this->input->post('id');
-        $employeeCode = trim((string) $this->input->post('employee_code'));
+        // employee_code tidak diinput user: dibuat otomatis saat karyawan baru disimpan.
         $nip = trim((string) $this->input->post('nip'));
         $name = trim((string) $this->input->post('name'));
         $email = trim((string) $this->input->post('email'));
@@ -74,22 +74,18 @@ class Employees extends MY_Admin_Controller
         if (!in_array($role, $this->roles, true)) {
             return $this->json(array('success' => false, 'message' => 'Role tidak valid'), 422);
         }
-        if ($employeeCode === '' || $name === '' || $officeId <= 0) {
-            return $this->json(array('success' => false, 'message' => 'Kode karyawan, nama, dan kantor wajib diisi'), 422);
+        if ($name === '' || $officeId <= 0) {
+            return $this->json(array('success' => false, 'message' => 'Nama dan kantor wajib diisi'), 422);
         }
         // ADMIN_KANTOR can only create/edit employees in their own office.
         if ($this->officeScope() && $officeId !== $this->officeScope()) {
             return $this->json(array('success' => false, 'message' => 'Anda hanya dapat mengelola karyawan kantor Anda sendiri'), 403);
-        }
-        if ($this->Admin_employee_model->employeeCodeExists($employeeCode, $id ?: null)) {
-            return $this->json(array('success' => false, 'message' => 'Kode karyawan sudah dipakai'), 422);
         }
         if ($email !== '' && $this->Admin_employee_model->emailExists($email, $id ?: null)) {
             return $this->json(array('success' => false, 'message' => 'Email sudah dipakai'), 422);
         }
 
         $data = array(
-            'employee_code' => $employeeCode,
             'nip'           => $nip ?: null,
             'name'          => $name,
             'email'         => $email ?: null,
@@ -106,6 +102,7 @@ class Employees extends MY_Admin_Controller
             if (!$existing || ($this->officeScope() && (int) $existing['office_id'] !== $this->officeScope())) {
                 return $this->json(array('success' => false, 'message' => 'Anda tidak berwenang mengubah data ini'), 403);
             }
+            // employee_code sengaja tidak diubah saat edit.
             if ($password !== '') {
                 $data['password'] = password_hash($password, PASSWORD_BCRYPT);
             }
@@ -115,12 +112,13 @@ class Employees extends MY_Admin_Controller
                 return $this->json(array('success' => false, 'message' => 'Password wajib diisi untuk karyawan baru'), 422);
             }
             $data['password'] = password_hash($password, PASSWORD_BCRYPT);
+            $data['employee_code'] = $this->generateEmployeeCode();
             $id = $this->Admin_employee_model->insert($data);
         }
 
         $updated = $this->Admin_employee_model->getById($id);
         unset($updated['password']);
-        $this->json(array('success' => true, 'message' => 'Data karyawan tersimpan', 'data' => $updated));
+        $this->json(array('success' => true, 'message' => 'Data karyawan tersimpan (' . $updated['employee_code'] . ')', 'data' => $updated));
     }
 
     public function toggle_status($id)
@@ -315,5 +313,21 @@ class Employees extends MY_Admin_Controller
             $prefix . '_accuracy'  => null, // sistem lama tidak menyimpan akurasi GPS
             $prefix . '_distance'  => $distance,
         );
+    }
+
+    /** Kode otomatis: SAMSU + (nomor urut terbesar saat ini + 1), mis. SAMSU0007. */
+    private function generateEmployeeCode(): string
+    {
+        $prefix = 'SAMSU';
+        $row = $this->db->query(
+            "SELECT MAX(CAST(SUBSTRING(employee_code, ?) AS UNSIGNED)) AS max_no
+               FROM employees
+              WHERE employee_code LIKE ?
+                AND SUBSTRING(employee_code, ?) REGEXP '^[0-9]+$'",
+            array(strlen($prefix) + 1, $prefix . '%', strlen($prefix) + 1)
+        )->row_array();
+
+        $next = ((int) ($row['max_no'] ?? 0)) + 1;
+        return $prefix . str_pad((string) $next, 4, '0', STR_PAD_LEFT);
     }
 }

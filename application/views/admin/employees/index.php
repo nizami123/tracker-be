@@ -38,15 +38,11 @@
                     <input type="hidden" name="id" id="empId">
 
                     <div class="row g-3">
-                        <div class="col-md-4">
-                            <label class="form-label small fw-bold">Kode Karyawan *</label>
-                            <input type="text" class="form-control" name="employee_code" id="empCode" required>
-                        </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <label class="form-label small fw-bold">NIP</label>
                             <input type="text" class="form-control" name="nip" id="empNip">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <label class="form-label small fw-bold">Role *</label>
                             <select class="form-select" name="role" id="empRole" required>
                                 <option value="EMPLOYEE">Employee</option>
