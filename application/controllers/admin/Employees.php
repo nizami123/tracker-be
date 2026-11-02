@@ -244,7 +244,7 @@ class Employees extends MY_Admin_Controller
             if ($in)  $fields += $this->syncPoint('check_in', $in, $office);
             if ($out) $fields += $this->syncPoint('check_out', $out, $office);
 
-            if ((int) $timezone['timezone'] == 'WIT') {
+            if ($timezone['timezone'] == 'WIT') {
                 foreach (array('check_in_time', 'check_out_time') as $key) {
                     if (!empty($fields[$key])) {
                         $fields[$key] = date(
