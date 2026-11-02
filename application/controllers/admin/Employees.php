@@ -230,7 +230,7 @@ class Employees extends MY_Admin_Controller
         $nowStr = now_datetime($tz);
         $sum = array('inserted' => 0, 'updated' => 0, 'skipped' => 0, 'empty' => 0);
 
-        $timezone = $this->office_model->getById((int) $emp['office_id']);
+        $timezone = $this->Admin_office_model->getById((int) $emp['office_id']);
         print_r($timezone);die;
         $this->db->trans_start();
         foreach ($res['data'] as $day) {
