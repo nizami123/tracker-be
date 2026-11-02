@@ -157,6 +157,8 @@ class Employees extends MY_Admin_Controller
      *    employees.<sync_match_column> (default: confirm_code).
      *  - Tanggal yang sudah ada TIDAK ditimpa: hanya jam masuk / pulang
      *    yang masih kosong yang dilengkapi.
+     *  - Jika kantor karyawan berzona waktu WIT, jam dari API lama
+     *    (yang disimpan dalam WIB) ditambah 2 jam.
      */
     public function sync($id)
     {
@@ -230,7 +232,10 @@ class Employees extends MY_Admin_Controller
         $nowStr = now_datetime($tz);
         $sum = array('inserted' => 0, 'updated' => 0, 'skipped' => 0, 'empty' => 0);
 
-        $timezone = $this->Admin_office_model->getById((int) $emp['office_id']);
+        // Sistem lama menyimpan jam dalam WIB. Kantor WIT (UTC+9) perlu +2 jam.
+        $officeTz = strtoupper(trim((string) ($office['timezone'] ?? '')));
+        $shiftWit = ($officeTz === 'WIT');
+
         $this->db->trans_start();
         foreach ($res['data'] as $day) {
             $tgl = isset($day['tanggal']) ? $day['tanggal'] : null;
@@ -244,13 +249,11 @@ class Employees extends MY_Admin_Controller
             if ($in)  $fields += $this->syncPoint('check_in', $in, $office);
             if ($out) $fields += $this->syncPoint('check_out', $out, $office);
 
-            if ($timezone['timezone'] == 'WIT') {
+            // Kantor WIT: geser jam masuk/pulang +2 jam.
+            if ($shiftWit) {
                 foreach (array('check_in_time', 'check_out_time') as $key) {
                     if (!empty($fields[$key])) {
-                        $fields[$key] = date(
-                            'H:i:s',
-                            strtotime($fields[$key] . ' +2 hours')
-                        );
+                        $fields[$key] = $this->addTwoHours((string) $fields[$key]);
                     }
                 }
             }
@@ -325,6 +328,19 @@ class Employees extends MY_Admin_Controller
             $prefix . '_accuracy'  => null, // sistem lama tidak menyimpan akurasi GPS
             $prefix . '_distance'  => $distance,
         );
+    }
+
+    /** Tambah 2 jam ke string jam (H:i:s). Hasil tetap H:i:s. */
+    private function addTwoHours(string $time): string
+    {
+        $dt = DateTime::createFromFormat('H:i:s', $time);
+        if (!$dt) {
+            $dt = DateTime::createFromFormat('H:i', $time);
+        }
+        if (!$dt) {
+            return $time; // format tak dikenali, biarkan apa adanya
+        }
+        return $dt->modify('+2 hours')->format('H:i:s');
     }
 
     /** Kode otomatis: SAMSU + (nomor urut terbesar saat ini + 1), mis. SAMSU0007. */
