@@ -136,7 +136,7 @@
                                 <div class="cal-summary-value"><?= $summary['hari_kerja'] ?></div>
                                 <div class="cal-summary-title">RESUME</div>
                                 <div class="cal-summary-rows">
-                                    <div><span>Hadir</span><span><?= $summary['hadir'] ?></span></div>
+                                    <div><span>Hadir</span><span><?= $summary['hadir']+$summary['telat'] ?></span></div>
                                     <div><span>Telat</span><span><?= $summary['telat'] ?></span></div>
                                     <div><span>Izin/Cuti</span><span><?= $summary['izin_cuti'] ?></span></div>
                                     <div><span>Dinas Luar</span><span><?= $summary['dinas_luar'] ?></span></div>
