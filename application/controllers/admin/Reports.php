@@ -138,8 +138,14 @@ class Reports extends MY_Admin_Controller
         $scope = $this->officeScope();
 
         $officeId = $f['office_id'] ?: $scope;
-        // ADMIN_KANTOR tidak bisa diarahkan ke kantor lain lewat query string,
-        // sama seperti pola officeScope() di seluruh panel admin ini.
+        $office = null;
+        if ($officeId) {
+            $office = $this->db
+                ->select('name')
+                ->where('id', (int) $officeId)
+                ->get('offices')
+                ->row_array();
+        }
         if ($scope && $officeId && (int) $officeId !== $scope) {
             $officeId = $scope;
         }
@@ -171,6 +177,9 @@ class Reports extends MY_Admin_Controller
         $filenameParts = array('rekap_absensi');
         if ($employeeId && count($employees) === 1) {
             $filenameParts[] = preg_replace('/[^a-z0-9]+/i', '_', strtolower($employees[0]['name']));
+        }
+        if (!empty($office['name'])) {
+            $filenameParts[] = preg_replace('/[^a-z0-9]+/i', '_', strtolower($office['name']));
         }
         $filenameParts[] = strtolower($months[$month]);
         $filenameParts[] = (string) $year;
