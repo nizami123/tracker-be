@@ -330,17 +330,26 @@ class Employees extends MY_Admin_Controller
         );
     }
 
-    /** Tambah 2 jam ke string jam (H:i:s). Hasil tetap H:i:s. */
-    private function addTwoHours(string $time): string
+    /**
+     * Tambah 2 jam. Mendukung "Y-m-d H:i:s", "Y-m-d H:i", "H:i:s", dan "H:i".
+     * Format hasil mengikuti format input (tanggal ikut bergeser bila melewati tengah malam).
+     */
+    private function addTwoHours(string $value): string
     {
-        $dt = DateTime::createFromFormat('H:i:s', $time);
-        if (!$dt) {
-            $dt = DateTime::createFromFormat('H:i', $time);
+        $value = trim($value);
+        $formats = array(
+            'Y-m-d H:i:s' => 'Y-m-d H:i:s',
+            'Y-m-d H:i'   => 'Y-m-d H:i:s',
+            'H:i:s'       => 'H:i:s',
+            'H:i'         => 'H:i:s',
+        );
+        foreach ($formats as $in => $out) {
+            $dt = DateTime::createFromFormat('!' . $in, $value);
+            if ($dt && $dt->format($in) === $value) {
+                return $dt->modify('+2 hours')->format($out);
+            }
         }
-        if (!$dt) {
-            return $time; // format tak dikenali, biarkan apa adanya
-        }
-        return $dt->modify('+2 hours')->format('H:i:s');
+        return $value; // format tak dikenali, biarkan apa adanya
     }
 
     /** Kode otomatis: SAMSU + (nomor urut terbesar saat ini + 1), mis. SAMSU0007. */
