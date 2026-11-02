@@ -231,7 +231,6 @@ class Employees extends MY_Admin_Controller
         $sum = array('inserted' => 0, 'updated' => 0, 'skipped' => 0, 'empty' => 0);
 
         $timezone = $this->Admin_office_model->getById((int) $emp['office_id']);
-        print_r($timezone);die;
         $this->db->trans_start();
         foreach ($res['data'] as $day) {
             $tgl = isset($day['tanggal']) ? $day['tanggal'] : null;
@@ -245,7 +244,7 @@ class Employees extends MY_Admin_Controller
             if ($in)  $fields += $this->syncPoint('check_in', $in, $office);
             if ($out) $fields += $this->syncPoint('check_out', $out, $office);
 
-            if ((int) $emp['timezone'] == 'WIT') {
+            if ((int) $timezone['timezone'] == 'WIT') {
                 foreach (array('check_in_time', 'check_out_time') as $key) {
                     if (!empty($fields[$key])) {
                         $fields[$key] = date(
