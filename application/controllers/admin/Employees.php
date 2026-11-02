@@ -229,7 +229,7 @@ class Employees extends MY_Admin_Controller
         $tz = employee_timezone($emp);
         $nowStr = now_datetime($tz);
         $sum = array('inserted' => 0, 'updated' => 0, 'skipped' => 0, 'empty' => 0);
-
+        print_r($emp['timezone']);die;
         $this->db->trans_start();
         foreach ($res['data'] as $day) {
             $tgl = isset($day['tanggal']) ? $day['tanggal'] : null;
