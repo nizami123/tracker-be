@@ -162,6 +162,7 @@ class Admin_request_model extends CI_Model
         }
         $timePart = sprintf('%02d:%02d:%02d', (int) $m[1], (int) $m[2], isset($m[3]) ? (int) $m[3] : 0);
         $hhmm = substr($timePart, 0, 5);
+        $stamp = $date . ' ' . $timePart;
 
         $employeeId = (int) $request['employee_id'];
         $tz = $this->requestTimezone($id);
@@ -169,6 +170,7 @@ class Admin_request_model extends CI_Model
         $lat = (isset($request['latitude']) && $request['latitude'] !== '') ? $request['latitude'] : null;
         $lng = (isset($request['longitude']) && $request['longitude'] !== '') ? $request['longitude'] : null;
         $note = '';
+        $col = $isIn ? 'check_in' : 'check_out';
 
         $this->db->trans_start();
 
@@ -177,33 +179,6 @@ class Admin_request_model extends CI_Model
             'SELECT * FROM attendances WHERE employee_id = ? AND attendance_date = ? FOR UPDATE',
             array($employeeId, $date)
         )->row_array();
-
-        $isOvernight = $this->isOvernightShift($employeeId, (int) $request['office_id'], $date);
-        $stamp = $date . ' ' . $timePart;
-        $nextDay = date('Y-m-d', strtotime($date . ' +1 day')) . ' ' . $timePart;
-
-        if ($isIn) {
-            // Jam masuk tidak boleh lebih akhir dari jam pulang yang sudah tercatat di baris yang sama.
-            if ($att && !empty($att['check_out_time']) && $stamp > $att['check_out_time']) {
-                $this->db->trans_complete();
-                return array('ok' => false, 'message' => 'Jam masuk (' . $hhmm . ') lebih akhir dari jam pulang yang sudah tercatat (' . substr($att['check_out_time'], 11, 5) . '). Pengajuan tidak bisa dicatat — tolak atau minta ajukan ulang.');
-            }
-        } else {
-            if ($att && !empty($att['check_in_time'])) {
-                if ($stamp < $att['check_in_time']) {
-                    if (!$isOvernight) {
-                        $this->db->trans_complete();
-                        return array('ok' => false, 'message' => 'Jam pulang (' . $hhmm . ') lebih awal dari jam masuk (' . substr($att['check_in_time'], 11, 5) . ') pada tanggal tersebut. Pengajuan tidak bisa dicatat — tolak atau minta ajukan ulang.');
-                    }
-                    $stamp = $nextDay;
-                }
-            } elseif (!$att && $isOvernight && $timePart < '12:00:00') {
-                // Belum ada check-in tapi shift malam: jam pulang pagi hari = hari berikutnya.
-                $stamp = $nextDay;
-            }
-        }
-
-        $col = $isIn ? 'check_in' : 'check_out';
 
         if ($att) {
             if (!empty($att[$col . '_time'])) {
@@ -241,16 +216,6 @@ class Admin_request_model extends CI_Model
             return array('ok' => false, 'message' => 'Gagal menyimpan ke database. Pengajuan belum disetujui, coba lagi.');
         }
         return array('ok' => true, 'message' => 'Pengajuan disetujui.' . $note);
-    }
-
-    /** Karyawan dijadwalkan shift lintas tengah malam pada $date? (Tanpa tabel shift / tanpa jadwal = false.) */
-    private function isOvernightShift(int $employeeId, int $officeId, string $date): bool
-    {
-        $this->load->model('Shift_model');
-        if (!$this->Shift_model->tablesReady()) return false;
-        $sched = $this->Shift_model->getScheduleForEmployees(array($employeeId), $date, $date);
-        $entry = $sched[$employeeId][$date] ?? null;
-        return $entry !== null && empty($entry['off']) && !empty($entry['shift']['crosses_midnight']);
     }
 
     public function reject(int $id, int $adminId, string $reason): void
