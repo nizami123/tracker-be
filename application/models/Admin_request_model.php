@@ -121,6 +121,138 @@ class Admin_request_model extends CI_Model
         ));
     }
 
+    /**
+     * Setujui pengajuan DAN terapkan ke tabel absensi.
+     *
+     * LATE / LEAVE / OUTSIDE_OFFICE: hanya menyetujui (perilaku lama, tidak berubah).
+     *
+     * CHECK_IN (Pengajuan Masuk) dan CHECK_OUT (Pengajuan Pulang): jam pada pengajuan
+     * dicatat ke `attendances` pada tanggal pengajuan —
+     *   - sudah ada baris absensi hari itu -> UPDATE jam masuk / jam pulang saja (kolom lain tidak disentuh);
+     *   - belum ada baris absensi hari itu -> INSERT baris baru berisi jam tersebut saja;
+     *   - jam yang sama sudah terisi       -> TIDAK ditimpa, pengajuan tetap disetujui (ada catatan).
+     * Persetujuan dan penulisan absensi satu transaksi: kalau salah satu gagal, dua-duanya dibatalkan,
+     * jadi tidak pernah ada pengajuan "disetujui" yang tidak tercatat.
+     *
+     * Urutan jam dijaga: jam pulang tidak boleh lebih awal dari jam masuk (dan sebaliknya) pada
+     * baris yang sama — kalau begitu ACC ditolak dengan pesan. Pengecualian shift malam (lintas
+     * tengah malam): jam pulang dini hari dianggap hari berikutnya.
+     *
+     * @return array{ok:bool,message:string}
+     */
+    public function approveAndApply(array $request, int $adminId): array
+    {
+        $id = (int) $request['id'];
+
+        if (!in_array($request['type'], array('CHECK_IN', 'CHECK_OUT'), true)) {
+            $this->approve($id, $adminId);
+            return array('ok' => true, 'message' => 'Pengajuan disetujui');
+        }
+
+        $isIn = ($request['type'] === 'CHECK_IN');
+        $label = $isIn ? 'masuk' : 'pulang';
+
+        $date = (string) ($request['date'] ?? '');
+        $dt = DateTime::createFromFormat('Y-m-d', $date);
+        if (!$dt || $dt->format('Y-m-d') !== $date) {
+            return array('ok' => false, 'message' => 'Tanggal pada pengajuan tidak valid, tidak bisa dicatat ke absensi.');
+        }
+        if (!preg_match('/^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/', trim((string) ($request['time'] ?? '')), $m)) {
+            return array('ok' => false, 'message' => 'Jam ' . $label . ' pada pengajuan kosong/tidak valid, tidak bisa dicatat ke absensi. Minta karyawan mengajukan ulang dengan jam ' . $label . '.');
+        }
+        $timePart = sprintf('%02d:%02d:%02d', (int) $m[1], (int) $m[2], isset($m[3]) ? (int) $m[3] : 0);
+        $hhmm = substr($timePart, 0, 5);
+
+        $employeeId = (int) $request['employee_id'];
+        $tz = $this->requestTimezone($id);
+        $now = now_datetime($tz);
+        $lat = (isset($request['latitude']) && $request['latitude'] !== '') ? $request['latitude'] : null;
+        $lng = (isset($request['longitude']) && $request['longitude'] !== '') ? $request['longitude'] : null;
+        $note = '';
+
+        $this->db->trans_start();
+
+        // Kunci baris absensi (employee_id, attendance_date unik) agar tidak balapan dengan check-in/out karyawan.
+        $att = $this->db->query(
+            'SELECT * FROM attendances WHERE employee_id = ? AND attendance_date = ? FOR UPDATE',
+            array($employeeId, $date)
+        )->row_array();
+
+        $isOvernight = $this->isOvernightShift($employeeId, (int) $request['office_id'], $date);
+        $stamp = $date . ' ' . $timePart;
+        $nextDay = date('Y-m-d', strtotime($date . ' +1 day')) . ' ' . $timePart;
+
+        if ($isIn) {
+            // Jam masuk tidak boleh lebih akhir dari jam pulang yang sudah tercatat di baris yang sama.
+            if ($att && !empty($att['check_out_time']) && $stamp > $att['check_out_time']) {
+                $this->db->trans_complete();
+                return array('ok' => false, 'message' => 'Jam masuk (' . $hhmm . ') lebih akhir dari jam pulang yang sudah tercatat (' . substr($att['check_out_time'], 11, 5) . '). Pengajuan tidak bisa dicatat — tolak atau minta ajukan ulang.');
+            }
+        } else {
+            if ($att && !empty($att['check_in_time'])) {
+                if ($stamp < $att['check_in_time']) {
+                    if (!$isOvernight) {
+                        $this->db->trans_complete();
+                        return array('ok' => false, 'message' => 'Jam pulang (' . $hhmm . ') lebih awal dari jam masuk (' . substr($att['check_in_time'], 11, 5) . ') pada tanggal tersebut. Pengajuan tidak bisa dicatat — tolak atau minta ajukan ulang.');
+                    }
+                    $stamp = $nextDay;
+                }
+            } elseif (!$att && $isOvernight && $timePart < '12:00:00') {
+                // Belum ada check-in tapi shift malam: jam pulang pagi hari = hari berikutnya.
+                $stamp = $nextDay;
+            }
+        }
+
+        $col = $isIn ? 'check_in' : 'check_out';
+
+        if ($att) {
+            if (!empty($att[$col . '_time'])) {
+                $note = ' Karyawan sudah memiliki jam ' . $label . ' (' . substr($att[$col . '_time'], 11, 5) . ') pada tanggal itu, jadi tidak ditimpa.';
+            } else {
+                $this->db->where('id', (int) $att['id'])->update('attendances', array(
+                    $col . '_time'      => $stamp,
+                    $col . '_latitude'  => $lat,
+                    $col . '_longitude' => $lng,
+                    $col . '_accuracy'  => null,
+                    $col . '_distance'  => null, // dari pengajuan, bukan scan di kantor
+                    'updated_at'        => $now,
+                ));
+                $note = ' Jam ' . $label . ' ' . $hhmm . ' dicatat ke absensi.';
+            }
+        } else {
+            $this->db->insert('attendances', array(
+                'employee_id'       => $employeeId,
+                'office_id'         => (int) $request['office_id'],
+                'attendance_date'   => $date,
+                $col . '_time'      => $stamp, // sisi lainnya dibiarkan kosong (NULL)
+                $col . '_latitude'  => $lat,
+                $col . '_longitude' => $lng,
+                'status'            => 'PRESENT',
+                'created_at'        => $now,
+                'updated_at'        => $now,
+            ));
+            $note = ' Belum ada absensi pada tanggal itu, dibuat baris absensi baru dengan jam ' . $label . ' ' . $hhmm . '.';
+        }
+
+        $this->approve($id, $adminId);
+        $this->db->trans_complete();
+
+        if ($this->db->trans_status() === false) {
+            return array('ok' => false, 'message' => 'Gagal menyimpan ke database. Pengajuan belum disetujui, coba lagi.');
+        }
+        return array('ok' => true, 'message' => 'Pengajuan disetujui.' . $note);
+    }
+
+    /** Karyawan dijadwalkan shift lintas tengah malam pada $date? (Tanpa tabel shift / tanpa jadwal = false.) */
+    private function isOvernightShift(int $employeeId, int $officeId, string $date): bool
+    {
+        $this->load->model('Shift_model');
+        if (!$this->Shift_model->tablesReady()) return false;
+        $sched = $this->Shift_model->getScheduleForEmployees(array($employeeId), $date, $date);
+        $entry = $sched[$employeeId][$date] ?? null;
+        return $entry !== null && empty($entry['off']) && !empty($entry['shift']['crosses_midnight']);
+    }
+
     public function reject(int $id, int $adminId, string $reason): void
     {
         $tz = $this->requestTimezone($id);

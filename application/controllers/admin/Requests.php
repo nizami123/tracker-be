@@ -83,8 +83,12 @@ class Requests extends MY_Admin_Controller
         if ($row['status'] !== 'PENDING') {
             return $this->json(array('success' => false, 'message' => 'Pengajuan ini sudah diproses sebelumnya'), 409);
         }
-        $this->Admin_request_model->approve($id, (int) $this->adminUser['id']);
-        $this->json(array('success' => true, 'message' => 'Pengajuan disetujui'));
+        // Pengajuan Pulang (CHECK_OUT) juga ditulis ke absensi: update bila sudah check-in, insert bila belum.
+        $result = $this->Admin_request_model->approveAndApply($row, (int) $this->adminUser['id']);
+        if (!$result['ok']) {
+            return $this->json(array('success' => false, 'message' => $result['message']), 422);
+        }
+        $this->json(array('success' => true, 'message' => $result['message']));
     }
 
     public function reject($id)
