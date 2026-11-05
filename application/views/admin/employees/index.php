@@ -187,7 +187,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const e = res.data;
             document.getElementById('employeeForm').reset();
             document.getElementById('empId').value = e.id;
-            document.getElementById('empCode').value = e.employee_code;
+            // document.getElementById('empCode').value = e.employee_code;
             document.getElementById('empNip').value = e.nip || '';
             document.getElementById('empName').value = e.name;
             document.getElementById('empEmail').value = e.email || '';
