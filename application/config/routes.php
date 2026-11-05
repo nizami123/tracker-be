@@ -69,6 +69,9 @@ $route['api/attendance/check-out']['post'] = 'api/attendance/check_out';
 $route['api/attendance/today']['get']      = 'api/attendance/today';
 $route['api/attendance/history']['get']    = 'api/attendance/history';
 
+// --- Shifts (jadwal shift karyawan; read-only, tidak mempengaruhi absensi) ---
+$route['api/shifts/my']['get'] = 'api/shifts/my';
+
 // --- Tracking ---
 $route['api/tracking/sync']['post']        = 'api/tracking/sync';
 $route['api/tracking/(:num)']['get']       = 'api/tracking/for_attendance/$1';

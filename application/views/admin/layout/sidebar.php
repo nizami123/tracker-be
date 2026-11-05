@@ -26,8 +26,10 @@ $active = $activeMenu ?? '';
             <?php at_nav_link('master_kendaraan', $active, 'admin/vehicles', 'bi-truck', 'Kendaraan'); ?>
             <?php at_nav_link('master_admin', $active, 'admin/admin_users', 'bi-shield-lock', 'User Admin'); ?>
             <?php at_nav_link('master_libur', $active, 'admin/holidays', 'bi-calendar-x', 'Hari Libur'); ?>
+            <?php at_nav_link('master_shift', $active, 'admin/shifts', 'bi-clock', 'Master Shift'); ?>
 
             <div class="nav-section-title">Absensi</div>
+            <?php at_nav_link('jadwal_shift', $active, 'admin/shift_schedules', 'bi-calendar-week', 'Jadwal Shift'); ?>
             <?php at_nav_link('history_absensi', $active, 'admin/attendances', 'bi-calendar-check', 'History Absensi'); ?>
             <?php at_nav_link('tracking_karyawan', $active, 'admin/attendance_tracking', 'bi-geo-alt', 'Tracking Karyawan'); ?>
 
