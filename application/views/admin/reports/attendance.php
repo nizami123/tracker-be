@@ -5,8 +5,10 @@
 
 <div class="alert alert-warning small py-2">
     <i class="bi bi-info-circle-fill me-1"></i>
-    "Tidak Hadir" adalah estimasi (karyawan aktif × hari dalam rentang − Hadir − Izin/Cuti) karena sistem belum
-    memiliki tabel jadwal/shift kerja. "Izin" dan "Cuti" digabung karena keduanya memakai tipe pengajuan yang sama (<code>LEAVE</code>).
+    Jam kerja mengikuti <a href="<?= site_url('admin/shift_schedules') ?>">Jadwal Shift</a>; karyawan tanpa jadwal memakai jam normal
+    (Senin-Jumat 08:00 - 16:30, Sabtu 08:00 - 12:30, Minggu &amp; hari libur = libur). "Terlambat" = check-in lewat jam mulai hari itu.
+    "Tidak Hadir" = hari kerja yang sudah lewat tanpa absensi, Izin/Cuti, maupun Dinas Luar (hari ini belum dihitung).
+    "Izin" dan "Cuti" digabung karena keduanya memakai tipe pengajuan yang sama (<code>LEAVE</code>).
 </div>
 
 <div class="at-card mb-3">
@@ -51,7 +53,7 @@
 <div class="row g-3 mb-3">
     <div class="col-6 col-md-2"><div class="at-stat-card"><div class="icon-box bg-icon-green"><i class="bi bi-check-circle-fill"></i></div><div><div class="stat-value"><?= $summary['hadir'] ?></div><div class="stat-label">Hadir</div></div></div></div>
     <div class="col-6 col-md-2"><div class="at-stat-card"><div class="icon-box bg-icon-orange"><i class="bi bi-clock-fill"></i></div><div><div class="stat-value"><?= $summary['terlambat'] ?></div><div class="stat-label">Terlambat</div></div></div></div>
-    <div class="col-6 col-md-2"><div class="at-stat-card"><div class="icon-box bg-icon-red"><i class="bi bi-x-circle-fill"></i></div><div><div class="stat-value"><?= $summary['tidak_hadir'] ?></div><div class="stat-label">Tidak Hadir (estimasi)</div></div></div></div>
+    <div class="col-6 col-md-2"><div class="at-stat-card"><div class="icon-box bg-icon-red"><i class="bi bi-x-circle-fill"></i></div><div><div class="stat-value"><?= $summary['tidak_hadir'] ?></div><div class="stat-label">Tidak Hadir</div></div></div></div>
     <div class="col-6 col-md-2"><div class="at-stat-card"><div class="icon-box bg-icon-blue"><i class="bi bi-file-earmark-text-fill"></i></div><div><div class="stat-value"><?= $summary['izin_cuti'] ?></div><div class="stat-label">Izin / Cuti</div></div></div></div>
     <div class="col-6 col-md-2"><div class="at-stat-card"><div class="icon-box bg-icon-blue"><i class="bi bi-people-fill"></i></div><div><div class="stat-value"><?= $summary['total_karyawan'] ?></div><div class="stat-label">Total Karyawan</div></div></div></div>
 </div>
@@ -60,20 +62,21 @@
     <div class="table-responsive">
         <table class="table table-at table-hover align-middle w-100">
             <thead>
-                <tr><th>Tanggal</th><th>Karyawan</th><th>Kantor</th><th>Jam Masuk</th><th>Jam Pulang</th><th>Status</th></tr>
+                <tr><th>Tanggal</th><th>Karyawan</th><th>Kantor</th><th>Jadwal</th><th>Jam Masuk</th><th>Jam Pulang</th><th>Status</th></tr>
             </thead>
             <tbody>
                 <?php if (empty($rows)): ?>
-                    <tr><td colspan="6" class="text-center text-gray py-4">Tidak ada data pada periode ini.</td></tr>
+                    <tr><td colspan="7" class="text-center text-gray py-4">Tidak ada data pada periode ini.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($rows as $r): ?>
                     <tr>
                         <td><?= html_escape($r['attendance_date']) ?></td>
                         <td><?= html_escape($r['employee_name']) ?> <span class="text-gray">(<?= html_escape($r['employee_code']) ?>)</span></td>
                         <td><?= html_escape($r['office_name']) ?></td>
+                        <td><?= html_escape($r['schedule_label']) ?></td>
                         <td><?= $r['check_in_time'] ? html_escape(substr($r['check_in_time'], 11, 8)) . ' ' . office_tz_label($r['office_timezone'] ?? null) : '-' ?></td>
                         <td><?= $r['check_out_time'] ? html_escape(substr($r['check_out_time'], 11, 8)) . ' ' . office_tz_label($r['office_timezone'] ?? null) : '-' ?></td>
-                        <td><?= html_escape($r['status']) ?></td>
+                        <td><?= html_escape($r['status_label']) ?></td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>

@@ -25,6 +25,8 @@ class Shift_model extends CI_Model
     /** Jam kerja default (perilaku lama aplikasi) bila karyawan belum dijadwalkan. */
     const DEFAULT_START = '08:00';
     const DEFAULT_END   = '16:30';
+    /** Jam pulang default hari Sabtu bila tidak ada shift (Senin-Jumat tetap DEFAULT_END). */
+    const DEFAULT_SATURDAY_END = '12:30';
 
     /** Tabel sudah dimigrasi? (aman dipanggil API walau SQL migrasi belum dijalankan) */
     public function tablesReady(): bool
@@ -242,6 +244,119 @@ class Shift_model extends CI_Model
             $out[$r['schedule_date']] = array('off' => false, 'shift' => self::publicShift($r));
         }
         return $out;
+    }
+
+    // ------------------------------------------------------------
+    // Jam kerja per tanggal (dipakai Laporan Absensi & Kalender Absensi)
+    // ------------------------------------------------------------
+
+    /**
+     * Jam kerja NORMAL bila karyawan tidak punya jadwal shift pada tanggal itu:
+     * Senin-Jumat 08:00 - 16:30, Sabtu 08:00 - 12:30, Minggu = tidak ada jam kerja (null).
+     */
+    public static function defaultHours(string $date): ?array
+    {
+        $dow = (int) date('w', strtotime($date)); // 0=Minggu .. 6=Sabtu
+        if ($dow === 0) return null;
+        return array(
+            'start' => self::DEFAULT_START,
+            'end'   => $dow === 6 ? self::DEFAULT_SATURDAY_END : self::DEFAULT_END,
+        );
+    }
+
+    /**
+     * Jadwal valid banyak karyawan sekaligus untuk rentang tanggal (untuk laporan):
+     * array[employee_id][Y-m-d] = array('off' => bool, 'shift' => array|null)
+     * Tanggal yang tidak ada = tidak dijadwalkan -> pakai jam normal (defaultHours).
+     *
+     * Beda dengan getEmployeeSchedule() (Android): shift yang SUDAH dinonaktifkan tetap
+     * dipakai, karena laporan menilai tanggal yang sudah lewat dan jadwal itu memang
+     * pernah berlaku. Shift milik kantor lain (karyawan sudah pindah) tetap diabaikan.
+     */
+    public function getSchedulesForEmployees(array $employeeIds, string $from, string $to): array
+    {
+        $out = array();
+        $employeeIds = array_values(array_unique(array_map('intval', $employeeIds)));
+        if (empty($employeeIds) || !$this->tablesReady()) return $out;
+
+        foreach (array_chunk($employeeIds, 500) as $chunk) {
+            $rows = $this->db->select('s.employee_id, s.schedule_date, s.shift_id, sh.id AS sh_id, sh.code, sh.name, sh.start_time, sh.end_time, sh.office_id AS sh_office_id, e.office_id AS emp_office_id')
+                ->from('employee_shift_schedules s')
+                ->join('employees e', 'e.id = s.employee_id')
+                ->join('shifts sh', 'sh.id = s.shift_id', 'left')
+                ->where_in('s.employee_id', $chunk)
+                ->where('s.schedule_date >=', $from)
+                ->where('s.schedule_date <=', $to)
+                ->get()->result_array();
+
+            foreach ($rows as $r) {
+                $emp = (int) $r['employee_id'];
+                if ($r['shift_id'] === null) {
+                    $out[$emp][$r['schedule_date']] = array('off' => true, 'shift' => null);
+                    continue;
+                }
+                if ($r['sh_id'] === null || (int) $r['sh_office_id'] !== (int) $r['emp_office_id']) {
+                    continue;
+                }
+                $out[$emp][$r['schedule_date']] = array('off' => false, 'shift' => self::publicShift($r));
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Jam kerja yang berlaku pada $date. $entry = isi getSchedulesForEmployees()[emp][date]
+     * atau null bila tidak dijadwalkan.
+     *
+     * source:
+     *   SHIFT       = ada shift          -> start/end = jam shift (is_workday true)
+     *   OFF         = LIBUR dari admin   -> tidak ada jam kerja
+     *   DEFAULT     = tanpa jadwal       -> jam normal (Sen-Jum 08:00-16:30, Sabtu 08:00-12:30)
+     *   DEFAULT_OFF = tanpa jadwal tapi hari Minggu / hari libur master -> tidak ada jam kerja
+     *
+     * Jadwal yang diisi admin selalu menang (shift pada hari Minggu/libur nasional tetap hari kerja,
+     * "Libur" tetap libur).
+     */
+    public static function resolveDay(string $date, ?array $entry, bool $isHoliday = false): array
+    {
+        if ($entry !== null) {
+            if (!empty($entry['off'])) {
+                return array('source' => 'OFF', 'is_workday' => false, 'start' => null, 'end' => null,
+                    'code' => null, 'name' => 'Libur', 'crosses_midnight' => false);
+            }
+            $s = $entry['shift'];
+            return array('source' => 'SHIFT', 'is_workday' => true, 'start' => $s['start_time'], 'end' => $s['end_time'],
+                'code' => $s['code'], 'name' => $s['name'], 'crosses_midnight' => (bool) $s['crosses_midnight']);
+        }
+
+        $hours = self::defaultHours($date);
+        if ($hours === null || $isHoliday) {
+            return array('source' => 'DEFAULT_OFF', 'is_workday' => false, 'start' => null, 'end' => null,
+                'code' => null, 'name' => 'Libur', 'crosses_midnight' => false);
+        }
+        return array('source' => 'DEFAULT', 'is_workday' => true, 'start' => $hours['start'], 'end' => $hours['end'],
+            'code' => null, 'name' => 'Normal', 'crosses_midnight' => false);
+    }
+
+    /**
+     * Terlambat bila check-in lewat dari jam mulai + 1 menit toleransi
+     * (aturan lama: batas 08:01:00, jadi 08:01:00 pas belum telat).
+     * Hari tanpa jam kerja (libur/Minggu) tidak pernah dianggap terlambat.
+     * $checkIn = "Y-m-d H:i:s" jam dinding kantor karyawan, $date = tanggal absensi.
+     */
+    public static function isLate(string $date, array $day, ?string $checkIn): bool
+    {
+        if (empty($checkIn) || empty($day['start'])) return false;
+        $limit = strtotime($date . ' ' . $day['start'] . ':00') + 60;
+        return strtotime($checkIn) > $limit;
+    }
+
+    /** Teks singkat jam kerja untuk laporan, mis. "P 07:00-15:00", "Normal 08:00-12:30", "Libur". */
+    public static function dayLabel(array $day): string
+    {
+        if (empty($day['start'])) return 'Libur';
+        $hours = $day['start'] . '-' . $day['end'];
+        return ($day['source'] === 'SHIFT' ? ($day['code'] ?: $day['name']) : 'Normal') . ' ' . $hours;
     }
 
     /** Bentuk shift yang dikirim ke Android. $r punya kolom sh_id/code/name/start_time/end_time. */

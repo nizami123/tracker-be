@@ -28,22 +28,23 @@
     <div class="summary">
         <div>Hadir<strong><?= $summary['hadir'] ?></strong></div>
         <div>Terlambat<strong><?= $summary['terlambat'] ?></strong></div>
-        <div>Tidak Hadir (estimasi)<strong><?= $summary['tidak_hadir'] ?></strong></div>
+        <div>Tidak Hadir<strong><?= $summary['tidak_hadir'] ?></strong></div>
         <div>Izin/Cuti<strong><?= $summary['izin_cuti'] ?></strong></div>
         <div>Total Karyawan<strong><?= $summary['total_karyawan'] ?></strong></div>
     </div>
 
     <table>
-        <thead><tr><th>Tanggal</th><th>Karyawan</th><th>Kantor</th><th>Jam Masuk</th><th>Jam Pulang</th><th>Status</th></tr></thead>
+        <thead><tr><th>Tanggal</th><th>Karyawan</th><th>Kantor</th><th>Jadwal</th><th>Jam Masuk</th><th>Jam Pulang</th><th>Status</th></tr></thead>
         <tbody>
             <?php foreach ($rows as $r): ?>
                 <tr>
                     <td><?= html_escape($r['attendance_date']) ?></td>
                     <td><?= html_escape($r['employee_name']) ?> (<?= html_escape($r['employee_code']) ?>)</td>
                     <td><?= html_escape($r['office_name']) ?></td>
+                    <td><?= html_escape($r['schedule_label']) ?></td>
                     <td><?= $r['check_in_time'] ? html_escape(substr($r['check_in_time'], 11, 8)) . ' ' . office_tz_label($r['office_timezone'] ?? null) : '-' ?></td>
                     <td><?= $r['check_out_time'] ? html_escape(substr($r['check_out_time'], 11, 8)) . ' ' . office_tz_label($r['office_timezone'] ?? null) : '-' ?></td>
-                    <td><?= html_escape($r['status']) ?></td>
+                    <td><?= html_escape($r['status_label']) ?></td>
                 </tr>
             <?php endforeach; ?>
         </tbody>

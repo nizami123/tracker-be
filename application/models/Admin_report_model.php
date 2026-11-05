@@ -8,26 +8,77 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  * ADMIN_README.md). This report merges them into a single "Izin/Cuti"
  * figure rather than inventing a column/value that doesn't exist.
  *
- * NOTE on "Tidak Hadir": there is no work-schedule/shift table, so
- * this is an ESTIMATE — (active employees × working days in range) −
- * Hadir − Izin/Cuti — not an exact figure tied to a real roster.
- * Flagged again here and in the report view itself.
+ * NOTE on jam kerja / "Tidak Hadir" / "Terlambat": jam kerja per tanggal
+ * ditentukan oleh Shift_model::resolveDay() — jadwal shift karyawan bila
+ * ada, kalau tidak ada jadwal memakai jam normal (Senin-Jumat 08:00-16:30,
+ * Sabtu 08:00-12:30, Minggu & hari libur master = libur). "Terlambat" =
+ * check-in lewat jam mulai hari itu (+1 menit toleransi), "Tidak Hadir" =
+ * hari kerja yang sudah lewat tanpa absensi / Izin-Cuti / Dinas Luar
+ * (sama persis dengan hitungan "Alfa" di Kalender Absensi).
  */
 class Admin_report_model extends CI_Model
 {
+    public function __construct()
+    {
+        parent::__construct();
+        $this->load->model('Holiday_model');
+        $this->load->model('Shift_model');
+    }
+
     // ---------------- Laporan Absensi ----------------
 
-    public function attendanceSummary(string $dateFrom, string $dateTo, ?int $officeId, ?int $employeeId): array
+    /**
+     * Baris + ringkasan Laporan Absensi dengan jam kerja per tanggal
+     * (shift bila dijadwalkan, jam normal bila tidak).
+     *
+     * Tiap baris ditambah: schedule_label (mis. "P 07:00-15:00" / "Normal 08:00-12:30"),
+     * is_late dan status_label (Hadir / Terlambat / Tidak Hadir).
+     */
+    public function attendanceReport(string $dateFrom, string $dateTo, ?int $officeId, ?int $employeeId): array
     {
-        $q = $this->db->where('attendance_date >=', $dateFrom)->where('attendance_date <=', $dateTo);
-        if ($officeId) $q->where('office_id', $officeId);
-        if ($employeeId) $q->where('employee_id', $employeeId);
-        $hadir = (int) $q->count_all_results('attendances');
+        $rows = $this->attendanceRows($dateFrom, $dateTo, $officeId, $employeeId);
+        $employees = $this->calendarEmployees($officeId, $employeeId);
 
-        $q = $this->db->where('attendance_date >=', $dateFrom)->where('attendance_date <=', $dateTo)->where('status', 'LATE');
-        if ($officeId) $q->where('office_id', $officeId);
-        if ($employeeId) $q->where('employee_id', $employeeId);
-        $terlambat = (int) $q->count_all_results('attendances');
+        $ids = array();
+        foreach ($employees as $e) $ids[] = (int) $e['id'];
+        foreach ($rows as $r) $ids[] = (int) $r['employee_id'];
+        $schedules = $this->Shift_model->getSchedulesForEmployees($ids, $dateFrom, $dateTo);
+
+        $holidayCache = array();
+        $holidaysFor = function (int $oid) use (&$holidayCache, $dateFrom, $dateTo) {
+            if (!isset($holidayCache[$oid])) {
+                $holidayCache[$oid] = $this->Holiday_model->getMapInRange($dateFrom, $dateTo, $oid);
+            }
+            return $holidayCache[$oid];
+        };
+
+        $terlambat = 0;
+        foreach ($rows as &$r) {
+            $date = $r['attendance_date'];
+            $empId = (int) $r['employee_id'];
+            $holidays = $holidaysFor((int) $r['employee_office_id']);
+            $day = Shift_model::resolveDay($date, $schedules[$empId][$date] ?? null, isset($holidays[$date]));
+
+            $late = Shift_model::isLate($date, $day, $r['check_in_time']) || $r['status'] === 'LATE';
+            $r['schedule_label'] = Shift_model::dayLabel($day);
+            $r['is_late'] = $late;
+            if ($r['status'] === 'ABSENT') {
+                $r['status_label'] = 'Tidak Hadir';
+            } else {
+                $r['status_label'] = $late ? 'Terlambat' : 'Hadir';
+                if ($late) $terlambat++;
+            }
+        }
+        unset($r);
+
+        $today = today_date();
+        $tidakHadir = 0;
+        foreach ($employees as $emp) {
+            $cells = $this->employeeDayStatuses($emp, $dateFrom, $dateTo, $today, $schedules[(int) $emp['id']] ?? array());
+            foreach ($cells as $c) {
+                if ($c['type'] === 'alfa') $tidakHadir++;
+            }
+        }
 
         $q = $this->db->where('type', 'LEAVE')->where('status', 'APPROVED')
             ->where('start_date <=', $dateTo)->where('end_date >=', $dateFrom);
@@ -35,27 +86,21 @@ class Admin_report_model extends CI_Model
         if ($employeeId) $q->where('employee_id', $employeeId);
         $izinCuti = (int) $q->count_all_results('attendance_requests');
 
-        $empQ = $this->db->where('status', 'ACTIVE')->where_in('role', array('EMPLOYEE', 'DRIVER'));
-        if ($officeId) $empQ->where('office_id', $officeId);
-        if ($employeeId) $empQ->where('id', $employeeId);
-        $totalEmployees = (int) $empQ->count_all_results('employees');
-
-        $workingDays = (strtotime($dateTo) - strtotime($dateFrom)) / 86400 + 1;
-        $expectedAttendances = $totalEmployees * max(1, (int) $workingDays);
-        $tidakHadir = max(0, $expectedAttendances - $hadir - $izinCuti);
-
         return array(
-            'hadir'       => $hadir,
-            'terlambat'   => $terlambat,
-            'tidak_hadir' => $tidakHadir,
-            'izin_cuti'   => $izinCuti,
-            'total_karyawan' => $totalEmployees,
+            'rows'    => $rows,
+            'summary' => array(
+                'hadir'          => count($rows),
+                'terlambat'      => $terlambat,
+                'tidak_hadir'    => $tidakHadir,
+                'izin_cuti'      => $izinCuti,
+                'total_karyawan' => count($employees),
+            ),
         );
     }
 
     public function attendanceRows(string $dateFrom, string $dateTo, ?int $officeId, ?int $employeeId): array
     {
-        $this->db->select("attendances.*, employees.name as employee_name, employees.employee_code, offices.name as office_name, offices.timezone as office_timezone")
+        $this->db->select("attendances.*, employees.name as employee_name, employees.employee_code, employees.office_id as employee_office_id, offices.name as office_name, offices.timezone as office_timezone")
             ->from('attendances')
             ->join('employees', 'employees.id = attendances.employee_id')
             ->join('offices', 'offices.id = attendances.office_id')
@@ -68,6 +113,94 @@ class Admin_report_model extends CI_Model
     }
 
     // ---------------- Kalender Absensi (Export PDF format kalender) ----------------
+
+    /**
+     * Status tiap tanggal untuk 1 pegawai (dipakai Kalender Absensi & hitungan
+     * "Tidak Hadir" di Laporan Absensi, supaya angkanya selalu sama).
+     *
+     * $scheduleMap = jadwal pegawai ini: array[Y-m-d] => array('off'=>bool,'shift'=>array|null)
+     * (dari Shift_model::getSchedulesForEmployees()); kosong = tanpa jadwal -> jam normal.
+     *
+     * Prioritas status per tanggal (paling kuat duluan): data absensi NYATA >
+     * Izin/Cuti disetujui > Dinas Luar disetujui > bukan hari kerja (Libur
+     * jadwal / Minggu / hari libur master) > "alfa" (hari kerja yang sudah
+     * lewat tanpa data apa pun) > belum terjadi (dibiarkan kosong).
+     * Telat = check-in lewat jam mulai SHIFT hari itu (atau jam normal 08:00).
+     *
+     * Hasil: array[Y-m-d] => array(date, dow, is_sunday, is_holiday, holiday_name,
+     *   day (hasil Shift_model::resolveDay), shift_code, type, time_label)
+     * type: none | hadir | telat | izin | dinas_luar | libur | alfa
+     */
+    public function employeeDayStatuses(array $emp, string $dateFrom, string $dateTo, string $today, array $scheduleMap): array
+    {
+        $empId = (int) $emp['id'];
+        $attendanceMap = $this->calendarAttendanceMap($empId, $dateFrom, $dateTo);
+        $leaveMap = $this->calendarLeaveMap($empId, $dateFrom, $dateTo);
+        $outsideMap = $this->calendarOutsideOfficeMap($empId, $dateFrom, $dateTo);
+        $holidayMap = $this->Holiday_model->getMapInRange($dateFrom, $dateTo, (int) $emp['office_id']);
+
+        $cells = array();
+        $cursor = $dateFrom;
+        while ($cursor <= $dateTo) {
+            $dow = (int) date('w', strtotime($cursor)); // 0=Minggu .. 6=Sabtu
+            $isHoliday = isset($holidayMap[$cursor]);
+            $day = Shift_model::resolveDay($cursor, $scheduleMap[$cursor] ?? null, $isHoliday);
+
+            $cell = array(
+                'date'         => (int) date('j', strtotime($cursor)),
+                'dow'          => $dow,
+                'is_sunday'    => ($dow === 0),
+                // Shift yang dijadwalkan admin pada tanggal merah = hari kerja, jangan diwarnai libur.
+                'is_holiday'   => $isHoliday && $day['source'] !== 'SHIFT',
+                'holiday_name' => $holidayMap[$cursor] ?? null,
+                'day'          => $day,
+                'shift_code'   => $day['source'] === 'SHIFT' ? ($day['code'] ?: $day['name']) : null,
+                'type'         => 'none',
+                'time_label'   => null,
+            );
+
+            if (isset($attendanceMap[$cursor])) {
+                $a = $attendanceMap[$cursor];
+                $in = $a['check_in_time'] ? substr($a['check_in_time'], 11, 5) : null;
+                $out = $a['check_out_time'] ? substr($a['check_out_time'], 11, 5) : null;
+                if ($in && $out) $cell['time_label'] = $in . '-' . $out;
+                elseif ($in) $cell['time_label'] = $in . '- -';
+                elseif ($out) $cell['time_label'] = '- -' . $out;
+                else $cell['time_label'] = '-';
+
+                $cell['type'] = Shift_model::isLate($cursor, $day, $a['check_in_time'] ?: null) ? 'telat' : 'hadir';
+            } elseif (isset($leaveMap[$cursor])) {
+                $cell['type'] = 'izin';
+            } elseif (isset($outsideMap[$cursor])) {
+                $cell['type'] = 'dinas_luar';
+            } elseif (!$day['is_workday']) {
+                $cell['type'] = 'libur';
+            } elseif ($cursor < $today) {
+                $cell['type'] = 'alfa';
+            }
+
+            $cells[$cursor] = $cell;
+            $cursor = date('Y-m-d', strtotime($cursor . ' +1 day'));
+        }
+        return $cells;
+    }
+
+    /** Ringkasan 1 pegawai dari hasil employeeDayStatuses(). */
+    public function summarizeDays(array $cells): array
+    {
+        $s = array('hari_kerja' => 0, 'hadir' => 0, 'telat' => 0, 'izin_cuti' => 0, 'dinas_luar' => 0, 'alfa' => 0);
+        foreach ($cells as $c) {
+            if ($c['day']['is_workday']) $s['hari_kerja']++;
+            switch ($c['type']) {
+                case 'hadir':      $s['hadir']++; break;
+                case 'telat':      $s['telat']++; break;
+                case 'izin':       $s['izin_cuti']++; break;
+                case 'dinas_luar': $s['dinas_luar']++; break;
+                case 'alfa':       $s['alfa']++; break;
+            }
+        }
+        return $s;
+    }
 
     /**
      * Daftar pegawai untuk digenerate 1 halaman kalender per pegawai.

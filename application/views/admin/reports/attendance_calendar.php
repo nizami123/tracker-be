@@ -5,7 +5,10 @@
 
 <div class="alert alert-warning small py-2">
     <i class="bi bi-info-circle-fill me-1"></i>
-    "Hari Kerja" dihitung otomatis (hari kalender − Minggu − Hari Libur pada master <a href="<?= site_url('admin/holidays') ?>">Hari Libur</a>).
+    Jam kerja mengikuti <a href="<?= site_url('admin/shift_schedules') ?>">Jadwal Shift</a> pegawai (kode shift tampil di samping tanggal; "Libur" pada jadwal = bukan hari kerja,
+    keterlambatan dihitung dari jam mulai shift). Pegawai <strong>tanpa jadwal</strong> memakai jam normal:
+    Senin-Jumat 08:00 - 16:30, Sabtu 08:00 - 12:30, Minggu libur.<br>
+    "Hari Kerja" = tanggal berjadwal shift, atau (tanpa jadwal) hari kalender − Minggu − Hari Libur pada master <a href="<?= site_url('admin/holidays') ?>">Hari Libur</a>.
     "Alfa" hanya dihitung untuk hari kerja yang sudah lewat tanpa absensi maupun pengajuan Izin/Cuti/Dinas Luar yang disetujui.
 </div>
 

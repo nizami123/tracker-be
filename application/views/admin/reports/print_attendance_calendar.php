@@ -42,6 +42,8 @@
         .cal-time { font-size: 11px; margin-top: 1px; }
         .cal-label { font-size: 11px; margin-top: 1px; font-weight: bold; }
         .cal-holiday-name { font-size: 6px; margin-top: 1px; line-height: 1; }
+        .cal-shift { font-size: 7px; font-weight: bold; color: #2c3e50; background: #e8eef4; border-radius: 2px; padding: 0 2px; vertical-align: middle; }
+        td.cal-off { background: #f1f3f5; }
 
         td.cal-sunday .cal-daynum { color: #c0392b; }
         td.cal-holiday { background: #fdecea; }
@@ -58,6 +60,9 @@
         .cal-summary-rows { padding: 4px 6px; }
         .cal-summary-rows div { display: flex; justify-content: space-between; font-size: 9px; padding: 2px 0; }
         .cal-summary-rows span:last-child { font-weight: bold; }
+
+        .cal-legend { margin-top: 4px; border: 1px solid #999; border-radius: 3px; padding: 3px 4px; font-size: 6.5px; line-height: 1.25; }
+        .cal-legend-title { font-weight: bold; font-size: 7px; margin-bottom: 1px; }
     </style>
 </head>
 <body>
@@ -100,8 +105,8 @@
                                                 <?php if ($cell === null): ?>
                                                     <td></td>
                                                 <?php else: ?>
-                                                    <td class="<?= $cell['is_sunday'] ? 'cal-sunday' : '' ?> <?= $cell['is_holiday'] ? 'cal-holiday' : '' ?> cal-type-<?= $cell['type'] ?>">
-                                                        <div class="cal-daynum"><?= $cell['date'] ?></div>
+                                                    <td class="<?= $cell['is_sunday'] ? 'cal-sunday' : '' ?> <?= $cell['is_holiday'] ? 'cal-holiday' : '' ?> <?= $cell['day']['source'] === 'OFF' ? 'cal-off' : '' ?> cal-type-<?= $cell['type'] ?>">
+                                                        <div class="cal-daynum"><?= $cell['date'] ?><?php if (!empty($cell['shift_code'])): ?> <span class="cal-shift"><?= html_escape($cell['shift_code']) ?></span><?php endif; ?></div>
                                                         <?php if ($cell['type'] === 'libur'): ?>
                                                             <div class="cal-label">LIBUR</div>
                                                             <?php if ($cell['holiday_name']): ?>
@@ -142,6 +147,17 @@
                                     <div><span>Dinas Luar</span><span><?= $summary['dinas_luar'] ?></span></div>
                                     <div><span>Alfa</span><span><?= $summary['alfa'] ?></span></div>
                                 </div>
+                            </div>
+
+                            <div class="cal-legend">
+                                <div class="cal-legend-title">JADWAL</div>
+                                <?php foreach ($page['shift_legend'] as $line): ?>
+                                    <div><?= html_escape($line) ?></div>
+                                <?php endforeach; ?>
+                                <?php if ($page['uses_default']): ?>
+                                    <div>Normal Sen-Jum 08:00-16:30</div>
+                                    <div>Normal Sab 08:00-12:30</div>
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>

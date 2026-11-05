@@ -13,6 +13,7 @@ class Reports extends MY_Admin_Controller
         $this->load->model('Admin_attendance_model');
         $this->load->model('Admin_delivery_model');
         $this->load->model('Holiday_model');
+        $this->load->model('Shift_model');
         $this->load->helper('export');
     }
 
@@ -69,8 +70,9 @@ class Reports extends MY_Admin_Controller
     {
         $f = $this->filtersFromRequest();
         $officeId = $f['office_id'] ?: $this->officeScope();
-        $summary = $this->Admin_report_model->attendanceSummary($f['date_from'], $f['date_to'], $officeId, $f['employee_id'] ?: null);
-        $rows = $this->Admin_report_model->attendanceRows($f['date_from'], $f['date_to'], $officeId, $f['employee_id'] ?: null);
+        $report = $this->Admin_report_model->attendanceReport($f['date_from'], $f['date_to'], $officeId, $f['employee_id'] ?: null);
+        $summary = $report['summary'];
+        $rows = $report['rows'];
 
         $this->render('admin/reports/attendance', array(
             'activeMenu' => 'laporan_absensi',
@@ -87,19 +89,19 @@ class Reports extends MY_Admin_Controller
     {
         $f = $this->filtersFromRequest();
         $officeId = $f['office_id'] ?: $this->officeScope();
-        $rows = $this->Admin_report_model->attendanceRows($f['date_from'], $f['date_to'], $officeId, $f['employee_id'] ?: null);
+        $rows = $this->Admin_report_model->attendanceReport($f['date_from'], $f['date_to'], $officeId, $f['employee_id'] ?: null)['rows'];
 
         export_excel(
             'laporan_absensi_' . $f['date_from'] . '_' . $f['date_to'],
-            array('Tanggal', 'Karyawan', 'Kode', 'Kantor', 'Jam Masuk', 'Jarak Masuk (m)', 'Jam Pulang', 'Jarak Pulang (m)', 'Status'),
+            array('Tanggal', 'Karyawan', 'Kode', 'Kantor', 'Jadwal', 'Jam Masuk', 'Jarak Masuk (m)', 'Jam Pulang', 'Jarak Pulang (m)', 'Status'),
             $rows,
             array(
-                'attendance_date', 'employee_name', 'employee_code', 'office_name',
+                'attendance_date', 'employee_name', 'employee_code', 'office_name', 'schedule_label',
                 fn($r) => $r['check_in_time'] ? substr($r['check_in_time'], 11, 8) . ' ' . office_tz_label($r['office_timezone'] ?? null) : '-',
                 fn($r) => $r['check_in_distance'] !== null ? round($r['check_in_distance']) : '-',
                 fn($r) => $r['check_out_time'] ? substr($r['check_out_time'], 11, 8) . ' ' . office_tz_label($r['office_timezone'] ?? null) : '-',
                 fn($r) => $r['check_out_distance'] !== null ? round($r['check_out_distance']) : '-',
-                'status',
+                'status_label',
             )
         );
     }
@@ -108,11 +110,10 @@ class Reports extends MY_Admin_Controller
     {
         $f = $this->filtersFromRequest();
         $officeId = $f['office_id'] ?: $this->officeScope();
-        $rows = $this->Admin_report_model->attendanceRows($f['date_from'], $f['date_to'], $officeId, $f['employee_id'] ?: null);
-        $summary = $this->Admin_report_model->attendanceSummary($f['date_from'], $f['date_to'], $officeId, $f['employee_id'] ?: null);
+        $report = $this->Admin_report_model->attendanceReport($f['date_from'], $f['date_to'], $officeId, $f['employee_id'] ?: null);
 
         $this->load->view('admin/reports/print_attendance', array(
-            'filters' => $f, 'summary' => $summary, 'rows' => $rows,
+            'filters' => $f, 'summary' => $report['summary'], 'rows' => $report['rows'],
         ));
     }
 
@@ -162,14 +163,13 @@ class Reports extends MY_Admin_Controller
         $daysInMonth = (int) date('t', strtotime($dateFrom));
         $dateTo = sprintf('%04d-%02d-%02d', $year, $month, $daysInMonth);
 
+        $schedules = $this->Shift_model->getSchedulesForEmployees(array_map(fn($e) => (int) $e['id'], $employees), $dateFrom, $dateTo);
+        $today = today_date();
+
         $pages = array();
         foreach ($employees as $emp) {
-            $attendanceMap = $this->Admin_report_model->calendarAttendanceMap((int) $emp['id'], $dateFrom, $dateTo);
-            $leaveMap = $this->Admin_report_model->calendarLeaveMap((int) $emp['id'], $dateFrom, $dateTo);
-            $outsideMap = $this->Admin_report_model->calendarOutsideOfficeMap((int) $emp['id'], $dateFrom, $dateTo);
-            $holidayMap = $this->Holiday_model->getMapInRange($dateFrom, $dateTo, (int) $emp['office_id']);
-
-            $pages[] = $this->buildEmployeeCalendarPage($emp, $year, $month, $daysInMonth, $attendanceMap, $leaveMap, $outsideMap, $holidayMap);
+            $cells = $this->Admin_report_model->employeeDayStatuses($emp, $dateFrom, $dateTo, $today, $schedules[(int) $emp['id']] ?? array());
+            $pages[] = $this->buildEmployeeCalendarPage($emp, $cells);
         }
 
         $months = $this->calendarMonths();
@@ -195,89 +195,19 @@ class Reports extends MY_Admin_Controller
     /**
      * Susun data 1 halaman kalender untuk 1 pegawai: grid minggu (Minggu
      * s/d Sabtu) + ringkasan (Hari Kerja / Hadir / Telat / Izin-Cuti /
-     * Dinas Luar / Alfa).
+     * Dinas Luar / Alfa) + legenda jadwal.
      *
-     * Prioritas status per tanggal (paling kuat duluan): data absensi
-     * NYATA (check-in/out) selalu menang meski jatuh di hari
-     * Minggu/libur (mis. driver yang tetap masuk) > pengajuan Izin/Cuti
-     * yang disetujui > pengajuan Dinas Luar yang disetujui > hari libur
-     * (nasional/kantor, dari master Hari Libur) atau hari Minggu >
-     * "Alfa" HANYA untuk hari kerja yang sudah lewat tanpa data apa pun
-     * (bukan asumsi, murni turunan dari hitungan tanggal) > belum
-     * terjadi (hari ini/masa depan) dibiarkan kosong, tidak dihitung Alfa.
-     *
-     * "Hari Kerja" & "Alfa" adalah hasil hitung (bukan kolom di
-     * database) — sama seperti perkiraan "Tidak Hadir" di
-     * attendanceSummary(), ini adalah estimasi berbasis kalender
-     * (hari kerja = bukan Minggu & bukan hari libur), bukan jadwal
-     * shift per pegawai karena sistem belum punya tabel itu.
+     * Status tiap tanggal & jam kerjanya dihitung oleh
+     * Admin_report_model::employeeDayStatuses(): pegawai yang punya jadwal
+     * shift memakai jam shift itu (Libur dari jadwal = bukan hari kerja);
+     * tanpa jadwal memakai jam normal Senin-Jumat 08:00-16:30, Sabtu
+     * 08:00-12:30, Minggu & hari libur master = libur.
      */
-    private function buildEmployeeCalendarPage(array $emp, int $year, int $month, int $daysInMonth, array $attendanceMap, array $leaveMap, array $outsideMap, array $holidayMap): array
+    private function buildEmployeeCalendarPage(array $emp, array $cells): array
     {
-        $today = today_date();
-        $cellsByDate = array();
-        $hariKerja = 0; $hadir = 0; $telat = 0; $izinCuti = 0; $dinasLuar = 0; $alfa = 0;
-
-        for ($d = 1; $d <= $daysInMonth; $d++) {
-            $date = sprintf('%04d-%02d-%02d', $year, $month, $d);
-            $dow = (int) date('w', strtotime($date)); // 0=Minggu .. 6=Sabtu
-            $isSunday = ($dow === 0);
-            $isHoliday = isset($holidayMap[$date]);
-            if (!$isSunday && !$isHoliday) $hariKerja++;
-
-            $cell = array(
-                'date'         => $d,
-                'dow'          => $dow,
-                'is_sunday'    => $isSunday,
-                'is_holiday'   => $isHoliday,
-                'holiday_name' => $holidayMap[$date] ?? null,
-                'type'         => 'none',
-                'time_label'   => null,
-            );
-
-            if (isset($attendanceMap[$date])) {
-                $a = $attendanceMap[$date];
-                $in = $a['check_in_time'] ? substr($a['check_in_time'], 11, 5) : null;
-                $out = $a['check_out_time'] ? substr($a['check_out_time'], 11, 5) : null;
-                if ($in && $out) $cell['time_label'] = $in . '-' . $out;
-                elseif ($in) $cell['time_label'] = $in . '- -';
-                elseif ($out) $cell['time_label'] = '- -' . $out;
-                else $cell['time_label'] = '-';
-
-                $jamMasukBatas = '08:01:00';
-
-                $jamMasuk = !empty($a['check_in_time'])
-                    ? date('H:i:s', strtotime($a['check_in_time']))
-                    : null;
-
-                $cell['type'] = ($jamMasuk !== null && $jamMasuk > $jamMasukBatas)
-                    ? 'telat'
-                    : 'hadir';
-
-                if ($cell['type'] === 'telat') {
-                    $telat++;
-                } else {
-                    $hadir++;
-                }
-            } elseif (isset($leaveMap[$date])) {
-                $cell['type'] = 'izin';
-                $izinCuti++;
-            } elseif (isset($outsideMap[$date])) {
-                $cell['type'] = 'dinas_luar';
-                $dinasLuar++;
-            } elseif ($isHoliday || $isSunday) {
-                $cell['type'] = 'libur';
-            } elseif ($date < $today) {
-                $cell['type'] = 'alfa';
-                $alfa++;
-            }
-
-            $cellsByDate[$date] = $cell;
-        }
-
         $weeks = array();
         $week = array_fill(0, 7, null);
-        foreach ($cellsByDate as $cell) {
+        foreach ($cells as $cell) {
             $week[$cell['dow']] = $cell;
             if ($cell['dow'] === 6) {
                 $weeks[] = $week;
@@ -288,17 +218,24 @@ class Reports extends MY_Admin_Controller
             $weeks[] = $week;
         }
 
+        // Legenda: kode shift yang dipakai bulan ini + ada/tidaknya hari bertanda jam normal.
+        $shiftLegend = array();
+        $usesDefault = false;
+        foreach ($cells as $c) {
+            if ($c['day']['source'] === 'SHIFT') {
+                $shiftLegend[$c['shift_code']] = $c['shift_code'] . ' ' . $c['day']['name'] . ' ' . $c['day']['start'] . '-' . $c['day']['end'];
+            } elseif ($c['day']['source'] === 'DEFAULT') {
+                $usesDefault = true;
+            }
+        }
+        ksort($shiftLegend);
+
         return array(
-            'employee' => $emp,
-            'weeks'    => $weeks,
-            'summary'  => array(
-                'hari_kerja' => $hariKerja,
-                'hadir'      => $hadir,
-                'telat'      => $telat,
-                'izin_cuti'  => $izinCuti,
-                'dinas_luar' => $dinasLuar,
-                'alfa'       => $alfa,
-            ),
+            'employee'     => $emp,
+            'weeks'        => $weeks,
+            'summary'      => $this->Admin_report_model->summarizeDays($cells),
+            'shift_legend' => array_values($shiftLegend),
+            'uses_default' => $usesDefault,
         );
     }
 
