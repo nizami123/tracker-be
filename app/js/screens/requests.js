@@ -8,10 +8,11 @@ const TYPES = [
   ['CHECK_IN', 'Pengajuan Masuk'],
   ['OUTSIDE_OFFICE', 'Absen Luar Kantor'],
   ['CHECK_OUT', 'Pengajuan Pulang'],
+  ['OVERTIME', 'Pengajuan Lembur'],
   ['LEAVE', 'Cuti / Izin'],
 ];
 const typeLabel = (t) => (TYPES.find((x) => x[0] === t) || [, t])[1];
-const typeIcon = (t) => ({ LEAVE: 'doc', LATE: 'clock', OUTSIDE_OFFICE: 'briefcase' }[t] || 'pin');
+const typeIcon = (t) => ({ LEAVE: 'doc', LATE: 'clock', OUTSIDE_OFFICE: 'briefcase', OVERTIME: 'clock' }[t] || 'pin');
 const STATUS = {
   APPROVED: ['Disetujui', 'green'], REJECTED: ['Ditolak', 'red'], PENDING: ['Menunggu', 'orange'],
 };
@@ -38,7 +39,7 @@ export function requests(view, ctx) {
       const [label, tone] = STATUS[r.status] || STATUS.PENDING;
       return `<div class="card item">
         <div class="top"><span class="pill blue" style="padding:8px;display:grid;place-items:center">${icon(typeIcon(r.type), 18)}</span>
-          <div class="ttl">${esc(typeLabel(r.type))}<div class="small muted" style="font-weight:500">${esc(dateText(r))}${r.time ? ' • ' + esc(r.time) : ''}</div></div>
+          <div class="ttl">${esc(typeLabel(r.type))}<div class="small muted" style="font-weight:500">${esc(dateText(r))}${r.type === 'OVERTIME' ? ' • ' + esc((r.time || '-').slice(0, 5)) + ' - ' + esc((r.end_time || '-').slice(0, 5)) : (r.time ? ' • ' + esc(r.time) : '')}</div></div>
           <span class="pill ${tone}">${label}</span></div>
         <div class="sub">${esc(r.reason)}</div>
         ${r.status === 'REJECTED' && r.rejection_reason ? `<div class="error" style="margin-bottom:0">Alasan ditolak: ${esc(r.rejection_reason)}</div>` : ''}
@@ -70,12 +71,14 @@ export function newRequest(view, ctx) {
 
     <div id="single">
       <div class="field"><label for="date">Tanggal</label><input class="input" type="date" id="date" value="${today}"></div>
-      <div class="field"><label for="time">Jam</label><input class="input" type="time" id="time"></div>
+      <div class="field"><label for="time" id="timeLbl">Jam</label><input class="input" type="time" id="time"></div>
+      <div class="field hidden" id="endWrap"><label for="endTime">Jam Selesai Lembur</label><input class="input" type="time" id="endTime"></div>
     </div>
     <div id="leave" class="hidden">
       <div class="field"><label for="sd">Tanggal Mulai</label><input class="input" type="date" id="sd" value="${today}"></div>
       <div class="field"><label for="ed">Tanggal Selesai</label><input class="input" type="date" id="ed" value="${today}"></div>
     </div>
+    <div id="overtimeInfo" class="banner warn hidden">${icon('info', 18)}<div>Pengajuan lembur perlu disetujui admin. Setelah disetujui, keterangan lembur tampil di kalender absen dan riwayat absensi.</div></div>
     <div id="outside" class="banner hidden">${icon('pin', 18)}<div><b>Absen luar kantor</b><div id="outsideSt" class="small">Mencari lokasi…</div>
       <div class="small">Posisi GPS Anda dicatat sebagai bukti, tanpa validasi radius kantor.</div></div></div>
 
@@ -107,6 +110,9 @@ export function newRequest(view, ctx) {
     $('#leave', view).classList.toggle('hidden', t !== 'LEAVE');
     $('#single', view).classList.toggle('hidden', t === 'LEAVE');
     $('#outside', view).classList.toggle('hidden', t !== 'OUTSIDE_OFFICE');
+    $('#endWrap', view).classList.toggle('hidden', t !== 'OVERTIME');
+    $('#overtimeInfo', view).classList.toggle('hidden', t !== 'OVERTIME');
+    $('#timeLbl', view).textContent = t === 'OVERTIME' ? 'Jam Mulai Lembur' : 'Jam';
     if (t === 'OUTSIDE_OFFICE' && !coords) {
       try {
         const p = await getPosition();
@@ -147,7 +153,7 @@ export function newRequest(view, ctx) {
     const type = $('#type', view).value;
     const reason = $('#reason', view).value.trim();
     if (!att) return showErr('Lampiran wajib diisi');
-    let date = null, start = null, end = null, time = null;
+    let date = null, start = null, end = null, time = null, endTime = null;
     if (type === 'LEAVE') {
       start = $('#sd', view).value; end = $('#ed', view).value || start;
       if (!start) return showErr('Tanggal wajib diisi');
@@ -155,13 +161,18 @@ export function newRequest(view, ctx) {
     } else {
       date = $('#date', view).value; time = $('#time', view).value || null;
       if (!date) return showErr('Tanggal wajib diisi');
+      if (type === 'OVERTIME') {
+        endTime = $('#endTime', view).value || null;
+        if (!time || !endTime) return showErr('Jam mulai dan jam selesai lembur wajib diisi');
+        if (endTime <= time) return showErr('Jam selesai lembur harus setelah jam mulai');
+      }
     }
     if (!reason) return showErr('Alasan wajib diisi');
 
     const btn = $('#submit', view);
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Mengirim...';
     const res = await Requests.submit({
-      id: 0, employee_id: emp.id, office_id: emp.office_id, type, date, start_date: start, end_date: end, time, reason,
+      id: 0, employee_id: emp.id, office_id: emp.office_id, type, date, start_date: start, end_date: end, time, end_time: endTime, reason,
       latitude: type === 'OUTSIDE_OFFICE' && coords ? coords.lat : null,
       longitude: type === 'OUTSIDE_OFFICE' && coords ? coords.lng : null,
       attachment: null, attachment_base64: att.base64, attachment_filename: att.name, status: 'PENDING', rejection_reason: null,

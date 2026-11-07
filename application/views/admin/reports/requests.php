@@ -37,6 +37,7 @@
                 <option value="CHECK_IN" <?= $filters['type'] == 'CHECK_IN' ? 'selected' : '' ?>>Masuk</option>
                 <option value="OUTSIDE_OFFICE" <?= $filters['type'] == 'OUTSIDE_OFFICE' ? 'selected' : '' ?>>Absen Luar Kantor</option>
                 <option value="CHECK_OUT" <?= $filters['type'] == 'CHECK_OUT' ? 'selected' : '' ?>>Pulang</option>
+                <option value="OVERTIME" <?= $filters['type'] == 'OVERTIME' ? 'selected' : '' ?>>Lembur</option>
                 <option value="LEAVE" <?= $filters['type'] == 'LEAVE' ? 'selected' : '' ?>>Cuti/Izin</option>
             </select>
         </div>
@@ -71,7 +72,7 @@
             <thead><tr><th>Diajukan</th><th>Karyawan</th><th>Kantor</th><th>Jenis</th><th>Tanggal</th><th>Status</th></tr></thead>
             <tbody>
                 <?php
-                $typeLabels = array('LATE' => 'Terlambat', 'CHECK_IN' => 'Masuk', 'CHECK_OUT' => 'Pulang', 'LEAVE' => 'Cuti/Izin', 'OUTSIDE_OFFICE' => 'Absen Luar Kantor');
+                $typeLabels = array('LATE' => 'Terlambat', 'CHECK_IN' => 'Masuk', 'CHECK_OUT' => 'Pulang', 'LEAVE' => 'Cuti/Izin', 'OUTSIDE_OFFICE' => 'Absen Luar Kantor', 'OVERTIME' => 'Lembur');
                 $statusMap = array('PENDING' => ['Menunggu', 'badge-at-orange'], 'APPROVED' => ['Disetujui', 'badge-at-green'], 'REJECTED' => ['Ditolak', 'badge-at-red']);
                 ?>
                 <?php if (empty($rows)): ?>
@@ -83,7 +84,7 @@
                         <td><?= html_escape($r['employee_name']) ?></td>
                         <td><?= html_escape($r['office_name']) ?></td>
                         <td><?= $typeLabels[$r['type']] ?? html_escape($r['type']) ?></td>
-                        <td><?= $r['type'] === 'LEAVE' ? html_escape($r['start_date'] . ' s/d ' . $r['end_date']) : html_escape($r['date']) ?></td>
+                        <td><?= $r['type'] === 'LEAVE' ? html_escape($r['start_date'] . ' s/d ' . $r['end_date']) : html_escape($r['date'] . ($r['type'] === 'OVERTIME' ? ' (' . substr((string) $r['time'], 0, 5) . '-' . substr((string) $r['end_time'], 0, 5) . ')' : '')) ?></td>
                         <td><span class="badge-at <?= $cls ?>"><?= $label ?></span></td>
                     </tr>
                 <?php endforeach; ?>

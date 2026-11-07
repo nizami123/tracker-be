@@ -83,12 +83,81 @@ class Requests extends MY_Admin_Controller
         if ($row['status'] !== 'PENDING') {
             return $this->json(array('success' => false, 'message' => 'Pengajuan ini sudah diproses sebelumnya'), 409);
         }
+        // Lembur: admin boleh mengubah tanggal/jam di form detail sebelum menyetujui
+        // (nilai yang dikirim ikut disimpan). Jika tidak dikirim, memakai data pengajuan apa adanya.
+        if ($row['type'] === 'OVERTIME' && $this->input->post('time') !== null) {
+            $err = $this->applyOvertimeEdit($row);
+            if ($err) return $this->json(array('success' => false, 'message' => $err), 422);
+        }
         // Pengajuan Pulang (CHECK_OUT) juga ditulis ke absensi: update bila sudah check-in, insert bila belum.
         $result = $this->Admin_request_model->approveAndApply($row, (int) $this->adminUser['id']);
         if (!$result['ok']) {
             return $this->json(array('success' => false, 'message' => $result['message']), 422);
         }
         $this->json(array('success' => true, 'message' => $result['message']));
+    }
+
+    /**
+     * Validasi + simpan perubahan tanggal/jam lembur dari POST (date, time, end_time).
+     * @return string|null pesan error, null bila berhasil.
+     */
+    private function applyOvertimeEdit(array $row): ?string
+    {
+        $v = $this->Admin_request_model->validateOvertime(
+            $this->input->post('date') ?: $row['date'],
+            $this->input->post('time'),
+            $this->input->post('end_time')
+        );
+        if (!$v['ok']) return $v['message'];
+        if ($this->Admin_request_model->overtimeOverlaps((int) $row['employee_id'], $v['date'], $v['start'], $v['end'], (int) $row['id'])) {
+            return 'Karyawan sudah punya lembur lain yang jamnya bertabrakan pada tanggal itu';
+        }
+        $this->Admin_request_model->updateOvertime((int) $row['id'], $v['date'], $v['start'], $v['end']);
+        return null;
+    }
+
+    /** POST admin/requests/update_overtime/{id} — ubah tanggal/jam lembur (PENDING atau APPROVED). */
+    public function update_overtime($id)
+    {
+        $row = $this->Admin_request_model->getById((int) $id, $this->officeScope());
+        if (!$row) return $this->json(array('success' => false, 'message' => 'Pengajuan tidak ditemukan'), 404);
+        if ($row['type'] !== 'OVERTIME') {
+            return $this->json(array('success' => false, 'message' => 'Hanya pengajuan lembur yang bisa diubah jamnya'), 422);
+        }
+        if ($row['status'] === 'REJECTED') {
+            return $this->json(array('success' => false, 'message' => 'Pengajuan yang sudah ditolak tidak bisa diubah'), 409);
+        }
+        $err = $this->applyOvertimeEdit($row);
+        if ($err) return $this->json(array('success' => false, 'message' => $err), 422);
+        $this->json(array('success' => true, 'message' => 'Jam lembur diperbarui'));
+    }
+
+    /** POST admin/requests/create_overtime — admin menginput lembur karyawan (langsung disetujui). */
+    public function create_overtime()
+    {
+        $employeeId = (int) $this->input->post('employee_id');
+        $this->load->model('Admin_employee_model');
+        $employee = $employeeId ? $this->Admin_employee_model->getById($employeeId) : null;
+        // Karyawan harus berperan EMPLOYEE/DRIVER dan (untuk ADMIN_KANTOR) berada di kantornya sendiri.
+        if (!$employee || !in_array($employee['role'], array('EMPLOYEE', 'DRIVER'), true)
+            || ($this->officeScope() && (int) $employee['office_id'] !== $this->officeScope())) {
+            return $this->json(array('success' => false, 'message' => 'Karyawan tidak ditemukan'), 404);
+        }
+
+        $v = $this->Admin_request_model->validateOvertime(
+            $this->input->post('date'), $this->input->post('time'), $this->input->post('end_time')
+        );
+        if (!$v['ok']) return $this->json(array('success' => false, 'message' => $v['message']), 422);
+
+        if ($this->Admin_request_model->overtimeOverlaps($employeeId, $v['date'], $v['start'], $v['end'])) {
+            return $this->json(array('success' => false, 'message' => 'Karyawan sudah punya lembur yang jamnya bertabrakan pada tanggal itu'), 409);
+        }
+
+        $reason = trim((string) $this->input->post('reason'));
+        if ($reason === '') $reason = 'Diinput oleh admin';
+
+        $this->Admin_request_model->createOvertime($employee, $v['date'], $v['start'], $v['end'], $reason, (int) $this->adminUser['id']);
+        $this->json(array('success' => true, 'message' => 'Lembur ' . $employee['name'] . ' berhasil dicatat dan langsung disetujui'));
     }
 
     public function reject($id)

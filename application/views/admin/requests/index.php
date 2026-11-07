@@ -1,6 +1,9 @@
-<div class="mb-3">
-    <h4 class="fw-bold mb-0"><?= html_escape($pageTitle) ?></h4>
-    <p class="text-gray small mb-0">Kelola pengajuan terlambat, masuk, pulang, dan cuti/izin karyawan.</p>
+<div class="mb-3 d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div>
+        <h4 class="fw-bold mb-0"><?= html_escape($pageTitle) ?></h4>
+        <p class="text-gray small mb-0">Kelola pengajuan terlambat, masuk, pulang, lembur, dan cuti/izin karyawan.</p>
+    </div>
+    <button class="btn btn-at-primary" id="btnAddOvertime"><i class="bi bi-moon-stars me-1"></i>Input Lembur Karyawan</button>
 </div>
 
 <div class="at-card mb-3">
@@ -37,6 +40,7 @@
                 <option value="CHECK_IN">Masuk</option>
                 <option value="OUTSIDE_OFFICE">Absen Luar Kantor</option>
                 <option value="CHECK_OUT">Pulang</option>
+                <option value="OVERTIME">Lembur</option>
                 <option value="LEAVE">Cuti/Izin</option>
             </select>
         </div>
@@ -89,6 +93,52 @@
     </div>
 </div>
 
+<!-- Input lembur oleh admin -->
+<div class="modal fade" id="overtimeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="overtimeForm">
+                <div class="modal-header">
+                    <h5 class="modal-title">Input Lembur Karyawan</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info small py-2">Lembur yang diinput admin langsung berstatus <strong>Disetujui</strong> dan tampil di kalender absensi &amp; history.</div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Karyawan *</label>
+                        <select class="form-select" id="otEmployee" required>
+                            <option value="">Pilih karyawan</option>
+                            <?php foreach ($employees as $e): ?><option value="<?= $e['id'] ?>"><?= html_escape($e['name']) ?> (<?= html_escape($e['employee_code']) ?>)</option><?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Tanggal *</label>
+                        <input type="date" class="form-control" id="otDate" required>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small fw-bold">Jam Mulai *</label>
+                            <input type="time" class="form-control" id="otStart" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-bold">Jam Selesai *</label>
+                            <input type="time" class="form-control" id="otEnd" required>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label small fw-bold">Keterangan</label>
+                        <textarea class="form-control" id="otReason" rows="2" placeholder="Opsional, mis. penyelesaian laporan akhir bulan"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-at-primary">Simpan Lembur</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Reject reason modal -->
 <div class="modal fade" id="rejectModal" tabindex="-1">
     <div class="modal-dialog">
@@ -119,8 +169,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
     const rejectModal = new bootstrap.Modal(document.getElementById('rejectModal'));
+    const overtimeModal = new bootstrap.Modal(document.getElementById('overtimeModal'));
+    const todayStr = <?= json_encode(date('Y-m-d')) ?>;
 
-    const typeLabels = { LATE: 'Terlambat', CHECK_IN: 'Pengajuan Masuk', CHECK_OUT: 'Pengajuan Pulang', LEAVE: 'Cuti/Izin', OUTSIDE_OFFICE: 'Absen Luar Kantor' };
+    const typeLabels = { LATE: 'Terlambat', CHECK_IN: 'Pengajuan Masuk', CHECK_OUT: 'Pengajuan Pulang', LEAVE: 'Cuti/Izin', OUTSIDE_OFFICE: 'Absen Luar Kantor', OVERTIME: 'Lembur' };
     function statusBadge(s) {
         const map = { PENDING: ['Menunggu', 'badge-at-orange'], APPROVED: ['Disetujui', 'badge-at-green'], REJECTED: ['Ditolak', 'badge-at-red'] };
         const m = map[s] || [s, 'badge-at-gray'];
@@ -196,7 +248,18 @@ document.addEventListener('DOMContentLoaded', function () {
                     <div class="col-6"><span class="text-gray">Kantor</span><div class="fw-bold">${r.office_name}</div></div>
                     <div class="col-6"><span class="text-gray">Jenis</span><div class="fw-bold">${typeLabels[r.type] || r.type}</div></div>
                     <div class="col-6"><span class="text-gray">Tanggal</span><div class="fw-bold">${dateRangeText(r)}</div></div>
-                    ${r.time ? `<div class="col-6"><span class="text-gray">Jam</span><div class="fw-bold">${r.time}</div></div>` : ''}
+                    ${r.type === 'OVERTIME'
+                        ? (r.status === 'REJECTED'
+                            ? `<div class="col-6"><span class="text-gray">Jam Lembur</span><div class="fw-bold">${(r.time || '-').substring(0, 5)} - ${(r.end_time || '-').substring(0, 5)} ${r.tz_label || ''}</div></div>`
+                            : `<div class="col-12"><div class="p-2 rounded border bg-light">
+                                  <div class="fw-bold mb-2"><i class="bi bi-pencil-square me-1"></i>Tanggal &amp; Jam Lembur <span class="text-gray fw-normal">(bisa diubah admin, ${r.tz_label || ''})</span></div>
+                                  <div class="row g-2">
+                                      <div class="col-12 col-md-4"><label class="form-label small mb-0">Tanggal</label><input type="date" class="form-control form-control-sm" id="editOtDate" value="${r.date || ''}"></div>
+                                      <div class="col-6 col-md-4"><label class="form-label small mb-0">Jam Mulai</label><input type="time" class="form-control form-control-sm" id="editOtStart" value="${(r.time || '').substring(0, 5)}"></div>
+                                      <div class="col-6 col-md-4"><label class="form-label small mb-0">Jam Selesai</label><input type="time" class="form-control form-control-sm" id="editOtEnd" value="${(r.end_time || '').substring(0, 5)}"></div>
+                                  </div>
+                              </div></div>`)
+                        : (r.time ? `<div class="col-6"><span class="text-gray">Jam</span><div class="fw-bold">${r.time}</div></div>` : '')}
                     <div class="col-6"><span class="text-gray">Status</span><div>${statusBadge(r.status)}</div></div>
                 </div>
                 <div class="mb-3">
@@ -212,32 +275,75 @@ document.addEventListener('DOMContentLoaded', function () {
             `;
 
             const footer = document.getElementById('detailFooter');
+            const isOvertime = r.type === 'OVERTIME';
             if (r.status === 'PENDING') {
                 footer.innerHTML = `
                     <button class="btn btn-outline-danger" id="btnRejectFromDetail"><i class="bi bi-x-lg me-1"></i>Tolak</button>
+                    ${isOvertime ? '<button class="btn btn-outline-at-primary" id="btnSaveOvertime"><i class="bi bi-save me-1"></i>Simpan Jam</button>' : ''}
                     <button class="btn btn-at-primary" id="btnApproveFromDetail"><i class="bi bi-check-lg me-1"></i>Setujui</button>
                 `;
-                document.getElementById('btnApproveFromDetail').addEventListener('click', () => approveRequest(r.id));
+                document.getElementById('btnApproveFromDetail').addEventListener('click', () => approveRequest(r.id, isOvertime));
+                if (isOvertime) document.getElementById('btnSaveOvertime').addEventListener('click', () => saveOvertime(r.id));
                 document.getElementById('btnRejectFromDetail').addEventListener('click', () => {
                     detailModal.hide();
                     document.getElementById('rejectId').value = r.id;
                     document.getElementById('rejectReason').value = '';
                     rejectModal.show();
                 });
+            } else if (isOvertime && r.status === 'APPROVED') {
+                footer.innerHTML = `<button class="btn btn-at-primary" id="btnSaveOvertime"><i class="bi bi-save me-1"></i>Simpan Perubahan Jam</button>`;
+                document.getElementById('btnSaveOvertime').addEventListener('click', () => saveOvertime(r.id));
             } else {
                 footer.innerHTML = '';
             }
         });
     }
 
-    function approveRequest(id) {
+    function overtimeEditData() {
+        const fd = new FormData();
+        fd.append('date', document.getElementById('editOtDate').value);
+        fd.append('time', document.getElementById('editOtStart').value);
+        fd.append('end_time', document.getElementById('editOtEnd').value);
+        return fd;
+    }
+
+    function saveOvertime(id) {
+        fetch(ADMIN_BASE_URL + 'admin/requests/update_overtime/' + id, { method: 'POST', body: overtimeEditData() })
+            .then(r => r.json()).then(res => {
+                alert(res.message);
+                if (res.success) { detailModal.hide(); table.ajax.reload(null, false); }
+            });
+    }
+
+    function approveRequest(id, isOvertime) {
         if (!confirm('Setujui pengajuan ini?')) return;
-        fetch(ADMIN_BASE_URL + 'admin/requests/approve/' + id, { method: 'POST' })
+        // Lembur: jam yang tampil di form (termasuk yang diubah admin) ikut disimpan saat menyetujui.
+        fetch(ADMIN_BASE_URL + 'admin/requests/approve/' + id, { method: 'POST', body: isOvertime ? overtimeEditData() : null })
             .then(r => r.json()).then(res => {
                 if (res.success) { detailModal.hide(); table.ajax.reload(null, false); }
                 else alert(res.message);
             });
     }
+
+    document.getElementById('btnAddOvertime').addEventListener('click', () => {
+        document.getElementById('overtimeForm').reset();
+        document.getElementById('otDate').value = todayStr;
+        overtimeModal.show();
+    });
+    document.getElementById('overtimeForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const fd = new FormData();
+        fd.append('employee_id', document.getElementById('otEmployee').value);
+        fd.append('date', document.getElementById('otDate').value);
+        fd.append('time', document.getElementById('otStart').value);
+        fd.append('end_time', document.getElementById('otEnd').value);
+        fd.append('reason', document.getElementById('otReason').value);
+        fetch(ADMIN_BASE_URL + 'admin/requests/create_overtime', { method: 'POST', body: fd })
+            .then(r => r.json()).then(res => {
+                alert(res.message);
+                if (res.success) { overtimeModal.hide(); table.ajax.reload(null, false); }
+            });
+    });
 
     $('#tblRequests tbody').on('click', '.btn-detail', function () { openDetail($(this).data('id')); });
 

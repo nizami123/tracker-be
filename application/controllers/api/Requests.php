@@ -39,6 +39,21 @@ class Requests extends MY_Controller
             return $this->json_response(array('success' => false, 'message' => 'Tanggal wajib diisi'), 422);
         }
 
+        // Lembur: jam mulai (time) & jam selesai (end_time) wajib, selesai harus setelah mulai.
+        // Selalu PENDING — baru berlaku di kalender absen & history setelah di-ACC admin.
+        $endTime = null;
+        if ($type === 'OVERTIME') {
+            $startTime = $this->normalizeTime($body['time'] ?? null);
+            $endTime = $this->normalizeTime($body['end_time'] ?? null);
+            if ($startTime === null || $endTime === null) {
+                return $this->json_response(array('success' => false, 'message' => 'Jam mulai dan jam selesai lembur wajib diisi'), 422);
+            }
+            if ($endTime <= $startTime) {
+                return $this->json_response(array('success' => false, 'message' => 'Jam selesai lembur harus setelah jam mulai'), 422);
+            }
+            $body['time'] = $startTime;
+        }
+
         $attachmentFile = save_base64_attachment($attachmentBase64, 'request_' . $employee['id'], $attachmentFilename);
         if ($attachmentFile === null) {
             return $this->json_response(array('success' => false, 'message' => 'Lampiran gagal diproses, coba lagi'), 422);
@@ -59,6 +74,7 @@ class Requests extends MY_Controller
             'start_date'  => $body['start_date'] ?? null,
             'end_date'    => $body['end_date'] ?? null,
             'time'        => $body['time'] ?? null,
+            'end_time'    => $endTime,
             'latitude'    => $latitude,
             'longitude'   => $longitude,
             'reason'      => $reason,
@@ -128,6 +144,15 @@ class Requests extends MY_Controller
             'status'             => 'PRESENT',
             'created_at'         => now_datetime($tz),
         ));
+    }
+
+    /** "HH:mm" / "HH:mm:ss" -> "HH:mm:ss"; null bila format tidak valid. */
+    private function normalizeTime($raw): ?string
+    {
+        if (!is_string($raw) || !preg_match('/^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/', trim($raw), $m)) {
+            return null;
+        }
+        return sprintf('%02d:%02d:%02d', (int) $m[1], (int) $m[2], isset($m[3]) ? (int) $m[3] : 0);
     }
 
     /** GET /api/requests — always scoped to the authenticated employee. */

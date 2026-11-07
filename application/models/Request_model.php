@@ -3,7 +3,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Request_model extends CI_Model
 {
-    private $validTypes = array('LATE', 'CHECK_IN', 'CHECK_OUT', 'LEAVE', 'OUTSIDE_OFFICE');
+    private $validTypes = array('LATE', 'CHECK_IN', 'CHECK_OUT', 'LEAVE', 'OUTSIDE_OFFICE', 'OVERTIME');
 
     public function isValidType(string $type): bool
     {

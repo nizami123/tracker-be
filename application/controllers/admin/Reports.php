@@ -265,7 +265,7 @@ class Reports extends MY_Admin_Controller
         $officeId = $f['office_id'] ?: $this->officeScope();
         $rows = $this->Admin_report_model->requestRows($f, $officeId);
 
-        $typeLabels = array('LATE' => 'Terlambat', 'CHECK_IN' => 'Masuk', 'CHECK_OUT' => 'Pulang', 'LEAVE' => 'Cuti/Izin', 'OUTSIDE_OFFICE' => 'Absen Luar Kantor');
+        $typeLabels = array('LATE' => 'Terlambat', 'CHECK_IN' => 'Masuk', 'CHECK_OUT' => 'Pulang', 'LEAVE' => 'Cuti/Izin', 'OUTSIDE_OFFICE' => 'Absen Luar Kantor', 'OVERTIME' => 'Lembur');
 
         export_excel(
             'laporan_pengajuan_' . $f['date_from'] . '_' . $f['date_to'],
@@ -275,7 +275,7 @@ class Reports extends MY_Admin_Controller
                 fn($r) => substr($r['created_at'], 0, 16) . ' ' . office_tz_label($r['office_timezone'] ?? null),
                 'employee_name', 'office_name',
                 fn($r) => $typeLabels[$r['type']] ?? $r['type'],
-                fn($r) => $r['type'] === 'LEAVE' ? ($r['start_date'] . ' s/d ' . $r['end_date']) : $r['date'],
+                fn($r) => $r['type'] === 'LEAVE' ? ($r['start_date'] . ' s/d ' . $r['end_date']) : ($r['date'] . ($r['type'] === 'OVERTIME' ? ' (' . substr((string) $r['time'], 0, 5) . '-' . substr((string) $r['end_time'], 0, 5) . ')' : '')),
                 'status', 'reason',
             )
         );

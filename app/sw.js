@@ -1,6 +1,6 @@
 // Service worker: cache "app shell" agar aplikasi terbuka cepat & tetap bisa dibuka saat offline.
 // Panggilan API (/api/...) dan ubin peta TIDAK pernah di-cache di sini.
-const VERSION = 'v1.0.0';
+const VERSION = 'v1.0.1';
 const CACHE = `samsu-tracker-${VERSION}`;
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',

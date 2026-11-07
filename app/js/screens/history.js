@@ -35,6 +35,7 @@ export function history(view, ctx) {
           <div><span class="muted">Pulang</span><b>${a.check_out_time ? Time.withLabel(a.check_out_time) : '-'}</b>
             <span class="small muted">${a.check_out_distance != null ? Math.round(a.check_out_distance) + ' m dari kantor' : ''}</span></div>
         </div>
+        ${a.overtime_label ? `<div class="sub"><span class="pill orange">Lembur ${esc(a.overtime_label)}</span></div>` : ''}
         <div class="sub row between"><span>Durasi kerja: <b>${Time.durationHM(a.check_in_time, a.check_out_time)}</b></span><span class="link">Lihat rute ›</span></div>
       </button>`).join('')
       : `<div class="empty">${icon('history', 44)}<p>Belum ada riwayat absensi</p></div>`;

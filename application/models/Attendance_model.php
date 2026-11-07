@@ -12,13 +12,19 @@ class Attendance_model extends CI_Model
             ->row_array();
     }
 
+    /**
+     * Riwayat absensi + keterangan lembur (`overtime_label`, mis. "17:00-20:00")
+     * dari pengajuan Lembur yang sudah APPROVED admin pada tanggal itu; null bila tidak ada.
+     */
     public function getHistory(int $employeeId, int $limit = 90): array
     {
-        return $this->db->where('employee_id', $employeeId)
-            ->order_by('attendance_date', 'DESC')
-            ->limit($limit)
-            ->get('attendances')
-            ->result_array();
+        $this->db->select('attendances.*', false)
+            ->select("(SELECT GROUP_CONCAT(CONCAT(TIME_FORMAT(r.time, '%H:%i'), '-', TIME_FORMAT(r.end_time, '%H:%i')) ORDER BY r.time SEPARATOR ', ') FROM attendance_requests r WHERE r.type = 'OVERTIME' AND r.status = 'APPROVED' AND r.employee_id = attendances.employee_id AND r.date = attendances.attendance_date) as overtime_label", false)
+            ->from('attendances')
+            ->where('attendances.employee_id', $employeeId)
+            ->order_by('attendances.attendance_date', 'DESC')
+            ->limit($limit);
+        return $this->db->get()->result_array();
     }
 
     public function getById(int $id)

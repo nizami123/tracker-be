@@ -34,7 +34,7 @@
         <thead><tr><th>Diajukan</th><th>Karyawan</th><th>Kantor</th><th>Jenis</th><th>Tanggal</th><th>Status</th></tr></thead>
         <tbody>
             <?php
-            $typeLabels = array('LATE' => 'Terlambat', 'CHECK_IN' => 'Masuk', 'CHECK_OUT' => 'Pulang', 'LEAVE' => 'Cuti/Izin', 'OUTSIDE_OFFICE' => 'Absen Luar Kantor');
+            $typeLabels = array('LATE' => 'Terlambat', 'CHECK_IN' => 'Masuk', 'CHECK_OUT' => 'Pulang', 'LEAVE' => 'Cuti/Izin', 'OUTSIDE_OFFICE' => 'Absen Luar Kantor', 'OVERTIME' => 'Lembur');
             ?>
             <?php foreach ($rows as $r): ?>
                 <tr>
@@ -42,7 +42,7 @@
                     <td><?= html_escape($r['employee_name']) ?></td>
                     <td><?= html_escape($r['office_name']) ?></td>
                     <td><?= $typeLabels[$r['type']] ?? html_escape($r['type']) ?></td>
-                    <td><?= $r['type'] === 'LEAVE' ? html_escape($r['start_date'] . ' s/d ' . $r['end_date']) : html_escape($r['date']) ?></td>
+                    <td><?= $r['type'] === 'LEAVE' ? html_escape($r['start_date'] . ' s/d ' . $r['end_date']) : html_escape($r['date'] . ($r['type'] === 'OVERTIME' ? ' (' . substr((string) $r['time'], 0, 5) . '-' . substr((string) $r['end_time'], 0, 5) . ')' : '')) ?></td>
                     <td><?= html_escape($r['status']) ?></td>
                 </tr>
             <?php endforeach; ?>

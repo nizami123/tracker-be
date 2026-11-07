@@ -98,7 +98,11 @@ export async function mockRequest(method, path, { body, query } = {}) {
     return ok(a || null);
   }
   if (p === 'api/attendance/history') {
-    return ok(d.attendances.filter((x) => x.employee_id === me.id).sort((a, b) => b.attendance_date.localeCompare(a.attendance_date)));
+    // Meniru server: keterangan lembur hanya dari pengajuan OVERTIME yang sudah APPROVED.
+    const ot = (date) => d.requests.filter((r) => r.employee_id === me.id && r.type === 'OVERTIME' && r.status === 'APPROVED' && r.date === date)
+      .map((r) => `${String(r.time).slice(0, 5)}-${String(r.end_time).slice(0, 5)}`).join(', ') || null;
+    return ok(d.attendances.filter((x) => x.employee_id === me.id).sort((a, b) => b.attendance_date.localeCompare(a.attendance_date))
+      .map((x) => ({ ...x, overtime_label: ot(x.attendance_date) })));
   }
   if (p === 'api/attendance/check-in' || p === 'api/attendance/check-out') {
     const out = p.endsWith('check-out');

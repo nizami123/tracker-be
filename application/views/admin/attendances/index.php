@@ -118,7 +118,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     return `<div class="d-flex gap-1">${masuk}${pulang}</div>`;
                 }
             },
-            { data: 'status', render: statusBadge },
+            {
+                data: 'status',
+                render: (s, t, row) => statusBadge(s) + (row.overtime_label
+                    ? `<div class="mt-1"><span class="badge-at" style="background:#f3e8fa;color:#8e44ad;"><i class="bi bi-moon-stars-fill me-1"></i>Lembur ${row.overtime_label}</span></div>`
+                    : '')
+            },
             {
                 data: null, orderable: false, className: 'text-end',
                 render: function (row) {

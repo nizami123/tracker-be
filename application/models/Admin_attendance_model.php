@@ -17,6 +17,7 @@ class Admin_attendance_model extends CI_Model
                 employees.nip,
                 offices.name as office_name,
                 offices.timezone as office_timezone,
+                (SELECT GROUP_CONCAT(CONCAT(TIME_FORMAT(r.time, '%H:%i'), '-', TIME_FORMAT(r.end_time, '%H:%i')) ORDER BY r.time SEPARATOR ', ') FROM attendance_requests r WHERE r.type = 'OVERTIME' AND r.status = 'APPROVED' AND r.employee_id = attendances.employee_id AND r.date = attendances.attendance_date) as overtime_label,
                 (SELECT COUNT(*) FROM attendance_tracking WHERE attendance_tracking.employee_id = attendances.employee_id AND attendance_tracking.recorded_at >= attendances.attendance_date AND attendance_tracking.recorded_at < DATE_ADD(attendances.attendance_date, INTERVAL 1 DAY)) as tracking_count
             ", false)
             ->from('attendances')

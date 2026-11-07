@@ -124,7 +124,9 @@ class Admin_request_model extends CI_Model
     /**
      * Setujui pengajuan DAN terapkan ke tabel absensi.
      *
-     * LATE / LEAVE / OUTSIDE_OFFICE: hanya menyetujui (perilaku lama, tidak berubah).
+     * LATE / LEAVE / OUTSIDE_OFFICE / OVERTIME: hanya menyetujui (perilaku lama, tidak berubah).
+     * OVERTIME yang APPROVED otomatis muncul sebagai keterangan Lembur di Kalender Absensi,
+     * History Absensi (admin) dan History (aplikasi karyawan) — dibaca langsung dari attendance_requests.
      *
      * CHECK_IN (Pengajuan Masuk) dan CHECK_OUT (Pengajuan Pulang): jam pada pengajuan
      * dicatat ke `attendances` pada tanggal pengajuan —
@@ -216,6 +218,88 @@ class Admin_request_model extends CI_Model
             return array('ok' => false, 'message' => 'Gagal menyimpan ke database. Pengajuan belum disetujui, coba lagi.');
         }
         return array('ok' => true, 'message' => 'Pengajuan disetujui.' . $note);
+    }
+
+    // ------------------------------------------------------------------
+    // Lembur (OVERTIME) — diubah / diinput langsung oleh admin
+    // ------------------------------------------------------------------
+
+    /** "HH:mm" / "HH:mm:ss" -> "HH:mm:ss"; null bila format tidak valid. */
+    public function parseTime($raw): ?string
+    {
+        if (!is_string($raw) || !preg_match('/^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/', trim($raw), $m)) return null;
+        return sprintf('%02d:%02d:%02d', (int) $m[1], (int) $m[2], isset($m[3]) ? (int) $m[3] : 0);
+    }
+
+    /**
+     * Validasi tanggal + jam lembur. Mengembalikan array('ok'=>true, 'date','start','end')
+     * atau array('ok'=>false, 'message'=>...).
+     */
+    public function validateOvertime($date, $start, $end): array
+    {
+        $date = (string) $date;
+        $dt = DateTime::createFromFormat('Y-m-d', $date);
+        if (!$dt || $dt->format('Y-m-d') !== $date) {
+            return array('ok' => false, 'message' => 'Tanggal lembur tidak valid');
+        }
+        $s = $this->parseTime($start);
+        $e = $this->parseTime($end);
+        if ($s === null || $e === null) {
+            return array('ok' => false, 'message' => 'Jam mulai dan jam selesai lembur wajib diisi');
+        }
+        if ($e <= $s) {
+            return array('ok' => false, 'message' => 'Jam selesai lembur harus setelah jam mulai');
+        }
+        return array('ok' => true, 'date' => $date, 'start' => $s, 'end' => $e);
+    }
+
+    /** Apakah karyawan sudah punya lembur (PENDING/APPROVED) yang jamnya bertabrakan pada tanggal itu. */
+    public function overtimeOverlaps(int $employeeId, string $date, string $start, string $end, ?int $exceptId = null): bool
+    {
+        $q = $this->db->where('employee_id', $employeeId)
+            ->where('type', 'OVERTIME')
+            ->where_in('status', array('PENDING', 'APPROVED'))
+            ->where('date', $date)
+            ->where('time <', $end)
+            ->where('end_time >', $start);
+        if ($exceptId) $q->where('id !=', $exceptId);
+        return $q->count_all_results('attendance_requests') > 0;
+    }
+
+    /** Ubah tanggal/jam lembur pada pengajuan OVERTIME yang sudah ada (status tidak diubah). */
+    public function updateOvertime(int $id, string $date, string $start, string $end): void
+    {
+        $tz = $this->requestTimezone($id);
+        $this->db->where('id', $id)->update('attendance_requests', array(
+            'date'       => $date,
+            'time'       => $start,
+            'end_time'   => $end,
+            'updated_at' => now_datetime($tz),
+        ));
+    }
+
+    /**
+     * Admin menginput lembur untuk karyawan: langsung APPROVED (admin sendiri yang meng-ACC),
+     * tanpa lampiran. office_id diambil dari data karyawan, bukan dari form.
+     */
+    public function createOvertime(array $employee, string $date, string $start, string $end, string $reason, int $adminId): int
+    {
+        $office = $this->db->select('timezone')->where('id', (int) $employee['office_id'])->get('offices')->row_array();
+        $now = now_datetime(office_timezone($office ?: null));
+        $this->db->insert('attendance_requests', array(
+            'employee_id' => (int) $employee['id'],
+            'office_id'   => (int) $employee['office_id'],
+            'type'        => 'OVERTIME',
+            'date'        => $date,
+            'time'        => $start,
+            'end_time'    => $end,
+            'reason'      => $reason,
+            'status'      => 'APPROVED',
+            'approved_by' => $adminId,
+            'approved_at' => $now,
+            'created_at'  => $now,
+        ));
+        return (int) $this->db->insert_id();
     }
 
     public function reject(int $id, int $adminId, string $reason): void

@@ -137,6 +137,7 @@ class Admin_report_model extends CI_Model
         $attendanceMap = $this->calendarAttendanceMap($empId, $dateFrom, $dateTo);
         $leaveMap = $this->calendarLeaveMap($empId, $dateFrom, $dateTo);
         $outsideMap = $this->calendarOutsideOfficeMap($empId, $dateFrom, $dateTo);
+        $overtimeMap = $this->calendarOvertimeMap($empId, $dateFrom, $dateTo);
         $holidayMap = $this->Holiday_model->getMapInRange($dateFrom, $dateTo, (int) $emp['office_id']);
 
         $cells = array();
@@ -157,6 +158,9 @@ class Admin_report_model extends CI_Model
                 'shift_code'   => $day['source'] === 'SHIFT' ? ($day['code'] ?: $day['name']) : null,
                 'type'         => 'none',
                 'time_label'   => null,
+                // Lembur yang sudah di-ACC admin: keterangan tambahan (tidak mengganti status hadir/libur/dll).
+                'overtime_label'   => isset($overtimeMap[$cursor]) ? $overtimeMap[$cursor]['label'] : null,
+                'overtime_minutes' => isset($overtimeMap[$cursor]) ? $overtimeMap[$cursor]['minutes'] : 0,
             );
 
             if (isset($attendanceMap[$cursor])) {
@@ -188,9 +192,13 @@ class Admin_report_model extends CI_Model
     /** Ringkasan 1 pegawai dari hasil employeeDayStatuses(). */
     public function summarizeDays(array $cells): array
     {
-        $s = array('hari_kerja' => 0, 'hadir' => 0, 'telat' => 0, 'izin_cuti' => 0, 'dinas_luar' => 0, 'alfa' => 0);
+        $s = array('hari_kerja' => 0, 'hadir' => 0, 'telat' => 0, 'izin_cuti' => 0, 'dinas_luar' => 0, 'alfa' => 0, 'lembur' => 0, 'lembur_menit' => 0);
         foreach ($cells as $c) {
             if ($c['day']['is_workday']) $s['hari_kerja']++;
+            if (!empty($c['overtime_label'])) {
+                $s['lembur']++;
+                $s['lembur_menit'] += (int) $c['overtime_minutes'];
+            }
             switch ($c['type']) {
                 case 'hadir':      $s['hadir']++; break;
                 case 'telat':      $s['telat']++; break;
@@ -279,6 +287,35 @@ class Admin_report_model extends CI_Model
 
         $map = array();
         foreach ($rows as $r) $map[$r['date']] = true;
+        return $map;
+    }
+
+    /**
+     * tanggal (Y-m-d) => array('label' => "17:00-20:00" (beberapa pengajuan digabung koma), 'minutes' => total menit)
+     * untuk pengajuan OVERTIME (Lembur) yang sudah APPROVED admin. Pengajuan PENDING/REJECTED tidak ikut.
+     */
+    public function calendarOvertimeMap(int $employeeId, string $dateFrom, string $dateTo): array
+    {
+        $rows = $this->db->select('date, time, end_time')
+            ->where('employee_id', $employeeId)
+            ->where('type', 'OVERTIME')->where('status', 'APPROVED')
+            ->where('date >=', $dateFrom)->where('date <=', $dateTo)
+            ->order_by('time', 'ASC')
+            ->get('attendance_requests')->result_array();
+
+        $map = array();
+        foreach ($rows as $r) {
+            $start = substr((string) $r['time'], 0, 5);
+            $end = substr((string) $r['end_time'], 0, 5);
+            $minutes = 0;
+            if ($start !== '' && $end !== '') {
+                $minutes = max(0, (strtotime('1970-01-01 ' . $end) - strtotime('1970-01-01 ' . $start)) / 60);
+            }
+            $d = $r['date'];
+            if (!isset($map[$d])) $map[$d] = array('label' => '', 'minutes' => 0);
+            $map[$d]['label'] .= ($map[$d]['label'] === '' ? '' : ', ') . $start . '-' . $end;
+            $map[$d]['minutes'] += (int) $minutes;
+        }
         return $map;
     }
 

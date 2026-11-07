@@ -41,6 +41,7 @@
         .cal-daynum { font-weight: bold; font-size: 13px; }
         .cal-time { font-size: 11px; margin-top: 1px; }
         .cal-label { font-size: 11px; margin-top: 1px; font-weight: bold; }
+        .cal-ot { font-size: 6.5px; font-weight: bold; color: #8e44ad; background: #f3e8fa; border-radius: 2px; margin-top: 1px; line-height: 1.1; }
         .cal-holiday-name { font-size: 6px; margin-top: 1px; line-height: 1; }
         .cal-shift { font-size: 7px; font-weight: bold; color: #2c3e50; background: #e8eef4; border-radius: 2px; padding: 0 2px; vertical-align: middle; }
         td.cal-off { background: #f1f3f5; }
@@ -126,6 +127,9 @@
                                                         <?php else: ?>
                                                             <div class="cal-time">-</div>
                                                         <?php endif; ?>
+                                                        <?php if (!empty($cell['overtime_label'])): ?>
+                                                            <div class="cal-ot">Lembur <?= html_escape($cell['overtime_label']) ?></div>
+                                                        <?php endif; ?>
                                                     </td>
                                                 <?php endif; ?>
                                             <?php endforeach; ?>
@@ -146,6 +150,7 @@
                                     <div><span>Izin/Cuti</span><span><?= $summary['izin_cuti'] ?></span></div>
                                     <div><span>Dinas Luar</span><span><?= $summary['dinas_luar'] ?></span></div>
                                     <div><span>Alfa</span><span><?= $summary['alfa'] ?></span></div>
+                                    <div><span>Lembur</span><span><?= $summary['lembur'] ?>x<?= $summary['lembur_menit'] > 0 ? ' / ' . round($summary['lembur_menit'] / 60, 1) . 'j' : '' ?></span></div>
                                 </div>
                             </div>
 

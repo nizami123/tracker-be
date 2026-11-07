@@ -9,7 +9,7 @@
     keterlambatan dihitung dari jam mulai shift). Pegawai <strong>tanpa jadwal</strong> memakai jam normal:
     Senin-Jumat 08:00 - 16:30, Sabtu 08:00 - 12:30, Minggu libur.<br>
     "Hari Kerja" = tanggal berjadwal shift, atau (tanpa jadwal) hari kalender − Minggu − Hari Libur pada master <a href="<?= site_url('admin/holidays') ?>">Hari Libur</a>.
-    "Alfa" hanya dihitung untuk hari kerja yang sudah lewat tanpa absensi maupun pengajuan Izin/Cuti/Dinas Luar yang disetujui.
+    "Lembur" tampil pada tanggalnya hanya untuk pengajuan Lembur yang sudah <strong>disetujui admin</strong>. "Alfa" hanya dihitung untuk hari kerja yang sudah lewat tanpa absensi maupun pengajuan Izin/Cuti/Dinas Luar yang disetujui.
 </div>
 
 <div class="at-card mb-3">
